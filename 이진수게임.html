@@ -175,6 +175,63 @@
   #battleBtn.running {
     background: linear-gradient(135deg, #636e72 0%, #2d3436 100%);
   }
+  #battleBtn:disabled {
+    background: #b2bec3;
+    cursor: not-allowed;
+  }
+  /* 관리자 / 순위 버튼 줄 */
+  .admin-row {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    margin: -12px 0 18px;
+  }
+  .link-btn {
+    background: none; border: none;
+    color: #888; font-size: 13px;
+    cursor: pointer; text-decoration: underline;
+  }
+  /* 모달 입력칸 */
+  .modal-input {
+    width: 100%;
+    padding: 13px 14px;
+    font-size: 18px;
+    border: 2px solid #dfe4ea;
+    border-radius: 12px;
+    text-align: center;
+    outline: none;
+    margin-bottom: 14px;
+  }
+  .modal-input:focus { border-color: #4834d4; }
+  .result-box .ghost {
+    background: #f1f2f6;
+    color: #555;
+    margin-top: 8px;
+  }
+  .result-box h2.blue { color: #4834d4; }
+  .result-box p.lead { color:#555; font-size:14px; margin-bottom:14px; line-height:1.5; }
+  /* 순위표 */
+  .rank-list {
+    text-align: left;
+    margin: 4px 0 18px;
+    max-height: 260px;
+    overflow-y: auto;
+  }
+  .rank-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 12px;
+    border-radius: 10px;
+    margin-bottom: 6px;
+    background: #f1f2f6;
+    font-size: 15px;
+  }
+  .rank-item.me { background: #ecebff; border: 1.5px solid #6c5ce7; }
+  .rank-item .medal { width: 30px; text-align:center; font-weight:bold; color:#636e72; }
+  .rank-item .rname { flex: 1; font-weight: bold; color:#2d3436; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .rank-item .rscore { color: #4834d4; font-weight: bold; }
+  .rank-empty { color:#b2bec3; padding: 24px 0; text-align:center; }
   /* 결과 모달 */
   .overlay {
     position: fixed; inset: 0;
@@ -256,6 +313,10 @@
     </div>
 
     <button id="battleBtn">⏱️ 3분 대결 모드 시작!</button>
+    <div class="admin-row">
+      <button class="link-btn" id="adminBtn">🔧 관리자</button>
+      <button class="link-btn" id="rankBtn">🏆 순위 보기</button>
+    </div>
 
     <div class="question">
       <div class="ask" id="ask">아래 수를 이진수로 바꿔보세요</div>
@@ -282,7 +343,48 @@
       <h2>⏱️ 3분 대결 끝!</h2>
       <div class="big" id="resultCount">0</div>
       <div class="msg" id="resultMsg">문제를 맞혔어요!</div>
+      <h2 class="blue" style="font-size:18px;">🏆 순위표</h2>
+      <div class="rank-list" id="resultRankList"></div>
       <button id="retryBtn">🔁 다시 도전!</button>
+      <button id="resultCloseBtn" class="ghost">닫기</button>
+    </div>
+  </div>
+
+  <!-- 이름 입력 -->
+  <div class="overlay" id="nameOverlay">
+    <div class="result-box">
+      <h2 class="blue">🎮 3분 대결</h2>
+      <p class="lead">이름(닉네임)을 입력하고 시작하세요!</p>
+      <input class="modal-input" id="nameInput" maxlength="10" placeholder="예: 윤정이" autocomplete="off">
+      <button id="nameStartBtn">시작! 🚀</button>
+      <button id="nameCancelBtn" class="ghost">취소</button>
+    </div>
+  </div>
+
+  <!-- 관리자 -->
+  <div class="overlay" id="adminOverlay">
+    <div class="result-box">
+      <h2 class="blue">🔧 관리자</h2>
+      <div id="adminLockView">
+        <p class="lead">비밀번호를 입력하면 대결 모드가 켜져요.</p>
+        <input class="modal-input" id="adminPw" type="password" placeholder="관리자 비밀번호" autocomplete="off">
+        <button id="adminUnlockBtn">잠금 해제 🔓</button>
+      </div>
+      <div id="adminPanelView" style="display:none;">
+        <p class="lead">대결 모드가 <b>켜져 있어요.</b><br>학생들이 대결을 시작할 수 있어요.</p>
+        <button id="adminResetBtn" style="background:#d63031;">🗑️ 순위 전체 초기화</button>
+        <button id="adminLockBtn" class="ghost">🔒 대결 모드 다시 잠그기</button>
+      </div>
+      <button id="adminCloseBtn" class="ghost">닫기</button>
+    </div>
+  </div>
+
+  <!-- 순위 보기 -->
+  <div class="overlay" id="rankOverlay">
+    <div class="result-box">
+      <h2 class="blue">🏆 순위표</h2>
+      <div class="rank-list" id="rankViewList"></div>
+      <button id="rankCloseBtn">닫기</button>
     </div>
   </div>
 
@@ -299,6 +401,13 @@
   let timeLeft = 180;      // 3분 = 180초
   let timerId = null;
   let prevMode = 'd2b';    // 대결 전 모드 기억
+
+  // ── 관리자 / 순위 설정 ──
+  const ADMIN_PASSWORD = "1234";              // ★ 관리자 비밀번호 (바꾸려면 여기 수정!)
+  const LB_KEY = "binaryGameLeaderboard";     // 순위 저장 키
+  const ADMIN_KEY = "binaryGameAdmin";        // 관리자 잠금해제 상태 키
+  let playerName = "";
+  let lastResultTime = 0;                      // 방금 친 기록 강조용
 
   const $ = id => document.getElementById(id);
 
@@ -502,34 +611,145 @@
     timerId = null;
 
     $('timerStat').style.display = 'none';
-    $('battleBtn').textContent = '⏱️ 3분 대결 모드 시작!';
     $('battleBtn').classList.remove('running');
     document.querySelectorAll('.mode-btn').forEach(b => b.disabled = false);
     mode = prevMode;
+    applyAdminState();   // 대결 버튼 원래 상태로 (관리자 잠금 유지)
 
     if (finished) {
-      // 결과 화면 표시
+      // 점수를 순위표에 저장
+      lastResultTime = saveScore(playerName, battleCorrect);
+
       $('resultCount').textContent = battleCorrect + '개';
       let msg;
       if (battleCorrect >= 30)      msg = '🏆 천재예요! 이진수 마스터!';
       else if (battleCorrect >= 20) msg = '🎉 정말 잘했어요!';
       else if (battleCorrect >= 10) msg = '👍 좋아요! 조금만 더!';
       else                          msg = '💪 다시 도전해봐요!';
-      $('resultMsg').textContent = '3분 동안 ' + battleCorrect + '문제를 맞혔어요!\n' + msg;
+      $('resultMsg').textContent = playerName + ' 님, 3분 동안 ' + battleCorrect + '문제 정답!\n' + msg;
+      renderBoard('resultRankList', lastResultTime);
       $('overlay').classList.add('show');
     }
   }
 
+  // ── 순위표(localStorage) ──
+  function loadBoard() {
+    try { return JSON.parse(localStorage.getItem(LB_KEY)) || []; }
+    catch (e) { return []; }
+  }
+  function saveScore(name, sc) {
+    const board = loadBoard();
+    const t = Date.now();
+    board.push({ name: name, score: sc, t: t });
+    localStorage.setItem(LB_KEY, JSON.stringify(board));
+    return t;
+  }
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  }
+  function renderBoard(targetId, highlightT) {
+    // 점수 높은 순, 같으면 먼저 기록한 사람 우선
+    const board = loadBoard().sort((a, b) => b.score - a.score || a.t - b.t);
+    const el = $(targetId);
+    if (board.length === 0) {
+      el.innerHTML = '<div class="rank-empty">아직 기록이 없어요.<br>첫 도전자가 되어보세요! 🎯</div>';
+      return;
+    }
+    const medals = ['🥇', '🥈', '🥉'];
+    el.innerHTML = board.slice(0, 50).map((e, i) => {
+      const medal = medals[i] || (i + 1) + '위';
+      const me = (e.t === highlightT) ? ' me' : '';
+      return '<div class="rank-item' + me + '">'
+           + '<span class="medal">' + medal + '</span>'
+           + '<span class="rname">' + escapeHtml(e.name) + '</span>'
+           + '<span class="rscore">' + e.score + '개</span></div>';
+    }).join('');
+  }
+
+  // ── 관리자 ──
+  function isAdmin() { return localStorage.getItem(ADMIN_KEY) === 'yes'; }
+  function applyAdminState() {
+    if (isAdmin()) {
+      $('battleBtn').disabled = false;
+      $('battleBtn').textContent = '⏱️ 3분 대결 모드 시작!';
+    } else {
+      $('battleBtn').disabled = true;
+      $('battleBtn').textContent = '🔒 3분 대결 (관리자 활성화 필요)';
+    }
+  }
+  function openAdmin() {
+    if (isAdmin()) {
+      $('adminLockView').style.display = 'none';
+      $('adminPanelView').style.display = 'block';
+    } else {
+      $('adminLockView').style.display = 'block';
+      $('adminPanelView').style.display = 'none';
+      $('adminPw').value = '';
+      $('adminPw').placeholder = '관리자 비밀번호';
+    }
+    $('adminOverlay').classList.add('show');
+  }
+  function tryUnlock() {
+    if ($('adminPw').value === ADMIN_PASSWORD) {
+      localStorage.setItem(ADMIN_KEY, 'yes');
+      applyAdminState();
+      openAdmin();   // 관리 패널로 전환
+    } else {
+      $('adminPw').value = '';
+      $('adminPw').placeholder = '❌ 비밀번호가 틀렸어요';
+    }
+  }
+
+  // ── 이름 입력 → 대결 시작 ──
+  function confirmName() {
+    const n = $('nameInput').value.trim();
+    if (!n) { $('nameInput').focus(); return; }
+    playerName = n;
+    $('nameOverlay').classList.remove('show');
+    startBattle();
+  }
+
+  // ── 이벤트 연결 ──
   $('battleBtn').addEventListener('click', () => {
-    if (battleOn) endBattle(false);   // 중단 (결과 안 띄움)
-    else startBattle();
+    if (battleOn) { endBattle(false); return; }   // 진행 중이면 중단
+    $('nameInput').value = playerName;
+    $('nameOverlay').classList.add('show');
+    setTimeout(() => $('nameInput').focus(), 50);
   });
+  $('nameStartBtn').addEventListener('click', confirmName);
+  $('nameInput').addEventListener('keydown', e => { if (e.key === 'Enter') confirmName(); });
+  $('nameCancelBtn').addEventListener('click', () => $('nameOverlay').classList.remove('show'));
+
   $('retryBtn').addEventListener('click', () => {
     $('overlay').classList.remove('show');
-    startBattle();
+    startBattle();   // 같은 이름으로 다시 도전
+  });
+  $('resultCloseBtn').addEventListener('click', () => $('overlay').classList.remove('show'));
+
+  $('adminBtn').addEventListener('click', openAdmin);
+  $('adminCloseBtn').addEventListener('click', () => $('adminOverlay').classList.remove('show'));
+  $('adminUnlockBtn').addEventListener('click', tryUnlock);
+  $('adminPw').addEventListener('keydown', e => { if (e.key === 'Enter') tryUnlock(); });
+  $('adminLockBtn').addEventListener('click', () => {
+    localStorage.removeItem(ADMIN_KEY);
+    applyAdminState();
+    $('adminOverlay').classList.remove('show');
+  });
+  $('adminResetBtn').addEventListener('click', () => {
+    if (confirm('정말 모든 순위 기록을 지울까요? 되돌릴 수 없어요.')) {
+      localStorage.removeItem(LB_KEY);
+      alert('순위가 초기화되었어요. 🧹');
+    }
   });
 
+  $('rankBtn').addEventListener('click', () => {
+    renderBoard('rankViewList', -1);
+    $('rankOverlay').classList.add('show');
+  });
+  $('rankCloseBtn').addEventListener('click', () => $('rankOverlay').classList.remove('show'));
+
   // 시작
+  applyAdminState();
   newQuestion();
   updateStats();
 </script>
