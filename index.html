@@ -314,6 +314,40 @@
   }
   .rule-list .rule.best { background: #eafaf1; }
   .rule-list .rule.best .pt { color: #00b894; }
+
+  /* ── 모바일/태블릿 터치 최적화 ── */
+  html { -webkit-text-size-adjust: 100%; }   /* iOS 글자 자동 확대 방지 */
+  button, .mode-btn, #submitBtn, .link-btn, input {
+    -webkit-tap-highlight-color: transparent;  /* 탭 시 회색 깜빡임 제거 */
+    touch-action: manipulation;                /* 더블탭 확대 지연 제거 */
+  }
+  button { user-select: none; }
+  .modes { align-items: stretch; }             /* 줄바꿈돼도 버튼 높이 동일 */
+  .mode-btn { min-height: 44px; line-height: 1.25; word-break: keep-all; }  /* 터치 영역 확보 + 한글 단어 안 끊기게 */
+  #submitBtn { min-height: 52px; flex-shrink: 0; white-space: nowrap; }  /* 확인 버튼은 줄어들지 않게(글자 잘림 방지) */
+  #answer { min-width: 0; }                     /* 좁은 화면에서 입력칸이 줄어들어 확인 버튼이 잘리지 않게 */
+
+  /* 작은 폰(≈320~400px)에서 여백·글자 크기 조정 */
+  @media (max-width: 400px) {
+    body { padding: 10px; }
+    .card { padding: 20px 16px 24px; border-radius: 20px; }
+    h1 { font-size: 21px; }
+    .subtitle { margin-bottom: 14px; }
+    .statusbar { gap: 6px; margin-bottom: 14px; }
+    .stat { padding: 8px 4px; border-radius: 12px; }
+    .stat .value { font-size: 18px; }
+    .modes { gap: 6px; margin-bottom: 16px; }
+    .mode-btn { font-size: 12px; padding: 8px 3px; }
+    .question { padding: 20px 12px; }
+    .question .num { font-size: 42px; letter-spacing: 1px; }
+    #answer { font-size: 18px; padding: 13px 12px; }
+    #submitBtn { padding: 0 16px; font-size: 15px; }
+    .rule-list .rule { font-size: 13px; padding: 10px 11px; gap: 6px; }
+  }
+
+  /* 세로가 짧은 화면(가로 모드 등)에서도 팝업이 스크롤되도록 */
+  .overlay { overflow-y: auto; }
+  .result-box { margin: auto; }
 </style>
 </head>
 <body>
