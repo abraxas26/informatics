@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>정보 교과 탐험 - 미니게임</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  :root{
+    --purple:#4834d4; --purple2:#686de0; --bg1:#667eea; --bg2:#764ba2;
+    --ink:#2d3436; --muted:#8a8f9c;
+  }
+  body{
+    font-family:'Malgun Gothic','맑은 고딕',sans-serif;
+    background:linear-gradient(135deg,var(--bg1) 0%,var(--bg2) 100%);
+    min-height:100vh; color:var(--ink);
+    display:flex; align-items:flex-start; justify-content:center;
+    padding:18px; overflow-x:hidden;
+  }
+  .app{ width:100%; max-width:520px; }
+
+  /* ===== 공통 카드/버튼 ===== */
+  .card{ background:#fff; border-radius:24px; box-shadow:0 20px 60px rgba(0,0,0,.28); padding:22px 20px 26px; }
+  h1{ font-size:24px; text-align:center; color:var(--purple); }
+  .subtitle{ text-align:center; color:var(--muted); font-size:13px; margin:4px 0 16px; }
+  .btn{ border:none; border-radius:14px; padding:12px 16px; font-size:15px; font-weight:bold;
+        cursor:pointer; transition:transform .1s, filter .15s; font-family:inherit; }
+  .btn:active{ transform:scale(.96); }
+  .btn-primary{ background:var(--purple); color:#fff; }
+  .btn-ghost{ background:#f1f2f6; color:#555; }
+  .btn-primary:hover{ filter:brightness(1.08); }
+  .topbar{ display:flex; align-items:center; gap:10px; margin-bottom:14px; }
+  .topbar .title{ font-size:18px; font-weight:bold; color:var(--purple); flex:1; }
+  .back{ background:#f1f2f6; border:none; border-radius:12px; padding:8px 12px; font-size:14px; cursor:pointer; font-family:inherit; }
+  .hidden{ display:none !important; }
+
+  /* ===== 학교 건물(허브) ===== */
+  .school{ position:relative; }
+  .flag{ width:3px; height:34px; background:#5f6672; margin:0 auto; position:relative; }
+  .flag::after{ content:""; position:absolute; left:3px; top:2px; width:26px; height:16px;
+    background:var(--purple); clip-path:polygon(0 0,100% 0,80% 50%,100% 100%,0 100%); }
+  .roof{ height:0; border-left:26px solid transparent; border-right:26px solid transparent;
+    border-bottom:40px solid #b33939; width:calc(100% - 0px); margin:0 auto;
+    border-bottom-color:#c0392b; filter:drop-shadow(0 4px 6px rgba(0,0,0,.15)); }
+  .floor{ background:#fdf6e3; border:3px solid #e8dcc0; border-top:none; padding:12px;
+    position:relative; }
+  .floor:first-of-type{ border-top:3px solid #e8dcc0; border-radius:0; }
+  .floor .floor-tag{ position:absolute; left:8px; top:8px; font-size:11px; font-weight:bold;
+    color:#b7791f; background:#fff5d6; border:1px solid #f0e0a8; border-radius:8px; padding:2px 7px; }
+  .rooms{ display:grid; gap:8px; margin-top:20px; }
+  .rooms.c1{ grid-template-columns:1fr; }
+  .rooms.c2{ grid-template-columns:1fr 1fr; }
+  .rooms.c3{ grid-template-columns:1fr 1fr; }
+  .room{ background:#fff; border:2px solid #dfe4ea; border-radius:12px; padding:12px 8px;
+    text-align:center; cursor:pointer; transition:all .15s; }
+  .room:hover{ border-color:var(--purple); transform:translateY(-3px); box-shadow:0 8px 18px rgba(72,52,212,.18); }
+  .room .icon{ font-size:26px; display:block; }
+  .room .rname{ display:block; font-size:13px; font-weight:bold; margin-top:4px; color:#333; }
+  .room .rgame{ display:block; font-size:11px; color:var(--muted); margin-top:2px; }
+  .ground{ height:16px; background:#7bed9f; border:3px solid #2ed573; border-top:none;
+    border-radius:0 0 16px 16px; }
+  .door{ width:46px; height:34px; background:#8b5a2b; border-radius:8px 8px 0 0; margin:0 auto;
+    border:2px solid #6b4423; border-bottom:none; position:relative; }
+  .door::after{ content:""; position:absolute; right:7px; top:15px; width:5px; height:5px; border-radius:50%; background:#f5d76e; }
+
+  /* ===== 게임 공용 무대 ===== */
+  .stage{ min-height:60px; }
+  .hud{ display:flex; gap:8px; margin-bottom:12px; }
+  .hud .pill{ flex:1; background:#f1f2f6; border-radius:12px; padding:8px; text-align:center; }
+  .hud .pill .l{ font-size:11px; color:var(--muted); }
+  .hud .pill .v{ font-size:18px; font-weight:bold; color:var(--purple); }
+  .msg{ text-align:center; font-size:14px; margin:10px 0; min-height:20px; font-weight:bold; }
+  .msg.good{ color:#20bf6b; } .msg.bad{ color:#eb3b5a; }
+  .center{ text-align:center; }
+  .row{ display:flex; gap:10px; justify-content:center; flex-wrap:wrap; }
+  .mt10{ margin-top:10px; } .mt16{ margin-top:16px; }
+
+  /* 결과 모달 */
+  .overlay{ position:fixed; inset:0; background:rgba(0,0,0,.5); display:flex; align-items:center; justify-content:center; padding:24px; z-index:50; }
+  .modal{ background:#fff; border-radius:20px; padding:24px 20px; max-width:360px; width:100%; text-align:center; }
+  .modal h2{ color:var(--purple); font-size:22px; margin-bottom:8px; }
+  .modal p{ color:#555; font-size:14px; line-height:1.6; margin-bottom:6px; }
+  .promo{ background:#f3f0ff; border:1px dashed #b8b0ff; border-radius:12px; padding:12px; margin:14px 0; font-size:13px; color:#5b4bd6; line-height:1.6; }
+
+  /* ===== 미로 ===== */
+  .maze{ display:grid; width:max-content; margin:0 auto; background:#fff; border:3px solid var(--purple); border-radius:8px; overflow:hidden; touch-action:none; }
+  .cell{ position:relative; background:#fff; }
+  .cell.wN{ border-top:2px solid var(--purple); }
+  .cell.wE{ border-right:2px solid var(--purple); }
+  .cell.wS{ border-bottom:2px solid var(--purple); }
+  .cell.wW{ border-left:2px solid var(--purple); }
+  .cell.player::after{ content:"🙂"; position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:18px; }
+  .cell.goal{ background:#eaffea; }
+  .cell.goal::before{ content:"🚪"; position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:18px; }
+  .dpad{ display:grid; grid-template-columns:repeat(3,54px); grid-template-rows:repeat(2,48px); gap:6px; justify-content:center; margin-top:14px; }
+  .dpad button{ border:none; background:var(--purple); color:#fff; font-size:20px; border-radius:12px; cursor:pointer; }
+  .dpad button:active{ background:var(--purple2); }
+  .dpad .u{ grid-column:2; grid-row:1; } .dpad .l{ grid-column:1; grid-row:2; }
+  .dpad .d{ grid-column:2; grid-row:2; } .dpad .r{ grid-column:3; grid-row:2; }
+
+  /* ===== 분류(AI) ===== */
+  .flash{ font-size:96px; text-align:center; margin:14px 0; }
+  .cls-btns{ display:flex; gap:12px; }
+  .cls-btns button{ flex:1; font-size:18px; padding:16px; border-radius:16px; border:2px solid #dfe4ea; background:#fff; cursor:pointer; font-family:inherit; font-weight:bold; }
+  .cls-btns button:active{ transform:scale(.96); }
+
+  /* ===== 그래프 ===== */
+  .bars{ display:flex; align-items:flex-end; gap:12px; height:180px; padding:10px 6px; justify-content:center; border-bottom:2px solid #ccc; }
+  .bar{ width:44px; background:linear-gradient(180deg,var(--purple2),var(--purple)); border-radius:8px 8px 0 0; position:relative; transition:height .4s; }
+  .bar span{ position:absolute; bottom:-22px; left:0; right:0; text-align:center; font-size:20px; }
+  .bar b{ position:absolute; top:-20px; left:0; right:0; text-align:center; font-size:12px; color:#555; }
+  .choices{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:34px; }
+  .choices button{ padding:14px; border:2px solid #dfe4ea; background:#fff; border-radius:14px; font-size:16px; cursor:pointer; font-family:inherit; font-weight:bold; }
+
+  /* ===== 물감 정렬 ===== */
+  .tubes{ display:flex; gap:14px; justify-content:center; flex-wrap:wrap; margin:16px 0; }
+  .tube{ width:46px; height:170px; border:3px solid #b2bec3; border-top:none;
+    border-radius:0 0 22px 22px; display:flex; flex-direction:column-reverse; padding:4px; gap:3px; cursor:pointer; background:#fff; transition:transform .12s; }
+  .tube.sel{ transform:translateY(-12px); border-color:var(--purple); }
+  .seg{ height:100%; border-radius:6px; }
+
+  /* ===== 틀린 그림 ===== */
+  .spot{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  .grid{ display:grid; gap:4px; background:#f1f2f6; border-radius:12px; padding:8px; }
+  .grid .g{ aspect-ratio:1; display:flex; align-items:center; justify-content:center; font-size:min(6vw,22px); cursor:pointer; border-radius:6px; user-select:none; }
+  .grid .g:active{ background:#dcdde1; }
+  .spot-label{ text-align:center; font-size:12px; color:var(--muted); margin-bottom:4px; }
+
+  /* ===== 불 끄기(두더지) ===== */
+  .holes{ display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin:14px 0; }
+  .hole{ aspect-ratio:1; background:#3d3d5c; border-radius:16px; display:flex; align-items:center; justify-content:center; font-size:min(9vw,40px); cursor:pointer; user-select:none; overflow:hidden; }
+  .hole.fire{ background:#ff7675; animation:pop .2s; }
+  @keyframes pop{ from{ transform:scale(.6);} to{ transform:scale(1);} }
+
+  /* ===== 순서 맞추기 ===== */
+  .order-list{ display:flex; flex-direction:column; gap:8px; margin:14px 0; }
+  .oitem{ display:flex; align-items:center; gap:10px; background:#fff; border:2px solid #dfe4ea; border-radius:12px; padding:12px; }
+  .oitem .txt{ flex:1; font-size:14px; }
+  .oitem .num{ width:26px; height:26px; border-radius:50%; background:#f1f2f6; display:flex; align-items:center; justify-content:center; font-weight:bold; color:var(--purple); font-size:13px; }
+  .oitem .mv{ display:flex; flex-direction:column; gap:2px; }
+  .oitem .mv button{ border:none; background:#f1f2f6; border-radius:6px; width:28px; height:18px; cursor:pointer; font-size:11px; }
+
+  /* ===== 매칭 ===== */
+  .match{ display:grid; grid-template-columns:1fr 1fr; gap:24px; }
+  .mcol{ display:flex; flex-direction:column; gap:8px; }
+  .mcell{ border:2px solid #dfe4ea; border-radius:12px; padding:12px 8px; text-align:center; font-size:13px; cursor:pointer; background:#fff; min-height:52px; display:flex; align-items:center; justify-content:center; }
+  .mcell.sel{ border-color:var(--purple); background:#f3f0ff; }
+  .mcell.done{ border-color:#20bf6b; background:#eaffea; color:#178f52; cursor:default; }
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- ========== 허브(학교 건물) ========== -->
+  <div id="hub" class="card school">
+    <h1>정보 교과 탐험 🏫</h1>
+    <p class="subtitle">교실을 눌러 미니게임을 즐겨보세요!</p>
+    <div class="flag"></div>
+    <div class="roof"></div>
+
+    <div class="floor">
+      <span class="floor-tag">3층</span>
+      <div class="rooms c2" data-floor="3"></div>
+    </div>
+    <div class="floor">
+      <span class="floor-tag">2층</span>
+      <div class="rooms c3" data-floor="2"></div>
+    </div>
+    <div class="floor">
+      <span class="floor-tag">1층</span>
+      <div class="rooms c1" data-floor="1"></div>
+    </div>
+    <div class="ground"><div class="door"></div></div>
+  </div>
+
+  <!-- ========== 게임 화면 ========== -->
+  <div id="game" class="card hidden">
+    <div class="topbar">
+      <button class="back" onclick="goHub()">← 학교로</button>
+      <span class="title" id="gTitle">게임</span>
+    </div>
+    <div id="stage" class="stage"></div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   교과 데이터
+============================================================ */
+const SUBJECTS = {
+  info:   {name:"정보", icon:"💻", game:"미로 탈출", floor:1},
+  ai:     {name:"인공지능 기초", icon:"🤖", game:"강아지·고양이 분류", floor:2},
+  data:   {name:"데이터 과학", icon:"📊", game:"그래프 정답 맞히기", floor:2},
+  cs:     {name:"정보과학", icon:"🧪", game:"물감 정렬 퍼즐", floor:2},
+  iot:    {name:"사물인터넷과 센서 제어", icon:"🔌", game:"불 빨리 끄기", floor:3},
+  big:    {name:"빅데이터 분석", icon:"🔍", game:"틀린 그림 찾기", floor:3},
+  research:{name:"정보과제연구", icon:"📑", game:"연구 순서 맞추기", floor:3},
+  swlife: {name:"소프트웨어와 생활", icon:"📱", game:"생활 SW 매칭", floor:3},
+};
+const PROMO = {
+  info:"‘정보’는 컴퓨팅 사고력의 출발점! 문제를 논리적으로 나눠 해결하는 힘을 길러요.",
+  ai:"‘인공지능 기초’에서는 컴퓨터가 데이터를 보고 분류·예측하는 원리를 배워요.",
+  data:"‘데이터 과학’은 데이터를 시각화하고 해석해 의미를 찾아내는 과목이에요.",
+  cs:"‘정보과학’은 정렬·탐색 같은 알고리즘으로 문제를 효율적으로 푸는 과목이에요.",
+  iot:"‘사물인터넷과 센서 제어’는 센서로 세상을 감지하고 기기를 제어해요.",
+  big:"‘빅데이터 분석’은 방대한 데이터 속 작은 차이·패턴을 찾아내요.",
+  research:"‘정보과제연구’는 스스로 문제를 정하고 탐구 과정을 설계하는 과목이에요.",
+  swlife:"‘소프트웨어와 생활’은 우리 일상을 바꾸는 소프트웨어를 이해해요.",
+};
+
+/* ============================================================
+   허브 렌더 & 라우팅
+============================================================ */
+const hub = document.getElementById('hub');
+const gameEl = document.getElementById('game');
+const stage = document.getElementById('stage');
+const gTitle = document.getElementById('gTitle');
+
+function buildHub(){
+  document.querySelectorAll('.rooms').forEach(c=>{
+    const f = +c.dataset.floor;
+    Object.entries(SUBJECTS).filter(([k,v])=>v.floor===f).forEach(([key,v])=>{
+      const d = document.createElement('div');
+      d.className='room';
+      d.innerHTML=`<span class="icon">${v.icon}</span><span class="rname">${v.name}</span><span class="rgame">${v.game}</span>`;
+      d.onclick=()=>openGame(key);
+      c.appendChild(d);
+    });
+  });
+}
+function goHub(){ gameEl.classList.add('hidden'); hub.classList.remove('hidden'); stage.innerHTML=''; }
+function openGame(key){
+  hub.classList.add('hidden'); gameEl.classList.remove('hidden');
+  gTitle.textContent = `${SUBJECTS[key].icon} ${SUBJECTS[key].name}`;
+  stage.innerHTML='';
+  GAMES[key](key);
+}
+
+/* 결과 모달 */
+function showResult(key, title, detail, onRetry){
+  const ov = document.createElement('div'); ov.className='overlay';
+  ov.innerHTML = `<div class="modal">
+    <h2>${title}</h2>
+    <p>${detail||''}</p>
+    <div class="promo">💡 ${PROMO[key]}</div>
+    <div class="row">
+      <button class="btn btn-ghost" id="mHub">학교로</button>
+      <button class="btn btn-primary" id="mRetry">다시하기</button>
+    </div>
+  </div>`;
+  document.body.appendChild(ov);
+  ov.querySelector('#mHub').onclick=()=>{ ov.remove(); goHub(); };
+  ov.querySelector('#mRetry').onclick=()=>{ ov.remove(); onRetry(); };
+}
+function hud(items){
+  return `<div class="hud">${items.map(i=>`<div class="pill"><div class="l">${i.l}</div><div class="v" id="${i.id}">${i.v}</div></div>`).join('')}</div>`;
+}
+const rnd = n => Math.floor(Math.random()*n);
+const shuffle = a => { for(let i=a.length-1;i>0;i--){ const j=rnd(i+1); [a[i],a[j]]=[a[j],a[i]]; } return a; };
+
+/* ============================================================
+   게임 구현
+============================================================ */
+const GAMES = {};
+
+/* ---------- 1) 정보: 미로 탈출 ---------- */
+GAMES.info = function(key){
+  const COLS=9, ROWS=9;
+  // 셀별 벽 {N,E,S,W}
+  const cells = Array.from({length:ROWS},()=>Array.from({length:COLS},()=>({N:1,E:1,S:1,W:1,v:0})));
+  const dirs=[['N',0,-1,'S'],['E',1,0,'W'],['S',0,1,'N'],['W',-1,0,'E']];
+  (function carve(x,y){
+    cells[y][x].v=1;
+    for(const [d,dx,dy,opp] of shuffle(dirs.slice())){
+      const nx=x+dx, ny=y+dy;
+      if(nx>=0&&nx<COLS&&ny>=0&&ny<ROWS&&!cells[ny][nx].v){
+        cells[y][x][d]=0; cells[ny][nx][opp]=0; carve(nx,ny);
+      }
+    }
+  })(0,0);
+
+  let px=0, py=0; let steps=0;
+  stage.innerHTML = hud([{l:"이동 수",v:0,id:"steps"}]) +
+    `<p class="center" style="font-size:13px;color:#888">🙂 를 움직여 🚪 까지 탈출! (방향키 또는 아래 버튼)</p>
+     <div class="maze" id="maze"></div>
+     <div class="dpad">
+       <button class="u">▲</button><button class="l">◀</button>
+       <button class="d">▼</button><button class="r">▶</button>
+     </div>`;
+  const maze = document.getElementById('maze');
+  maze.style.gridTemplateColumns=`repeat(${COLS},32px)`;
+  const cellEls=[];
+  for(let y=0;y<ROWS;y++) for(let x=0;x<COLS;x++){
+    const el=document.createElement('div'); el.style.width='32px'; el.style.height='32px';
+    el.className='cell'+(cells[y][x].N?' wN':'')+(cells[y][x].E?' wE':'')+(cells[y][x].S?' wS':'')+(cells[y][x].W?' wW':'');
+    if(x===COLS-1&&y===ROWS-1) el.classList.add('goal');
+    maze.appendChild(el); cellEls.push(el);
+  }
+  const draw=()=>{ cellEls.forEach(e=>e.classList.remove('player')); cellEls[py*COLS+px].classList.add('player'); };
+  draw();
+  function move(dir){
+    const c=cells[py][px];
+    if(dir==='N'&&!c.N)py--; else if(dir==='S'&&!c.S)py++;
+    else if(dir==='W'&&!c.W)px--; else if(dir==='E'&&!c.E)px++; else return;
+    steps++; document.getElementById('steps').textContent=steps; draw();
+    if(px===COLS-1&&py===ROWS-1){ off();
+      showResult(key,"🎉 탈출 성공!",`${steps}번 만에 미로를 빠져나왔어요!`,()=>GAMES.info(key)); }
+  }
+  const kb=e=>{ const m={ArrowUp:'N',ArrowDown:'S',ArrowLeft:'W',ArrowRight:'E'}; if(m[e.key]){ e.preventDefault(); move(m[e.key]); } };
+  document.addEventListener('keydown',kb);
+  function off(){ document.removeEventListener('keydown',kb); }
+  stage.querySelector('.dpad .u').onclick=()=>move('N');
+  stage.querySelector('.dpad .d').onclick=()=>move('S');
+  stage.querySelector('.dpad .l').onclick=()=>move('W');
+  stage.querySelector('.dpad .r').onclick=()=>move('E');
+};
+
+/* ---------- 2) 인공지능 기초: 강아지/고양이 분류 ---------- */
+GAMES.ai = function(key){
+  const dogs=["🐶","🐕","🦮","🐩","🐾"], cats=["🐱","🐈","😺","😻","🐈‍⬛"];
+  const TOTAL=8; let round=0, score=0, cur;
+  stage.innerHTML = hud([{l:"문제",v:`0/${TOTAL}`,id:"round"},{l:"정답",v:0,id:"score"}]) +
+    `<p class="center" style="font-size:13px;color:#888">그림을 보고 강아지인지 고양이인지 분류하세요! (AI의 이미지 분류처럼)</p>
+     <div class="flash" id="flash"></div>
+     <div class="msg" id="msg"></div>
+     <div class="cls-btns"><button id="bDog">🐶 강아지</button><button id="bCat">🐱 고양이</button></div>`;
+  const next=()=>{
+    if(round>=TOTAL){ showResult(key,"🤖 분류 완료!",`${TOTAL}문제 중 ${score}개 정답!`,()=>GAMES.ai(key)); return; }
+    const isDog=Math.random()<.5;
+    cur=isDog?'dog':'cat';
+    document.getElementById('flash').textContent = (isDog?dogs:cats)[rnd(5)];
+    document.getElementById('round').textContent=`${round}/${TOTAL}`;
+  };
+  const answer=g=>{
+    if(g===cur){ score++; document.getElementById('msg').className='msg good'; document.getElementById('msg').textContent='정답! ✅'; }
+    else { document.getElementById('msg').className='msg bad'; document.getElementById('msg').textContent='아쉬워요 ❌'; }
+    document.getElementById('score').textContent=score; round++;
+    document.getElementById('round').textContent=`${round}/${TOTAL}`;
+    setTimeout(()=>{ document.getElementById('msg').textContent=''; next(); },550);
+  };
+  document.getElementById('bDog').onclick=()=>answer('dog');
+  document.getElementById('bCat').onclick=()=>answer('cat');
+  next();
+};
+
+/* ---------- 3) 데이터 과학: 그래프 보고 정답 ---------- */
+GAMES.data = function(key){
+  const TOTAL=5; let round=0, score=0;
+  const labels=["🍎","🍌","🍇","🍊","🍓"];
+  stage.innerHTML = hud([{l:"문제",v:`0/${TOTAL}`,id:"round"},{l:"정답",v:0,id:"score"}]) +
+    `<div class="msg" id="q"></div>
+     <div class="bars" id="bars"></div>
+     <div class="choices" id="ch"></div>`;
+  function make(){
+    if(round>=TOTAL){ showResult(key,"📊 분석 완료!",`${TOTAL}문제 중 ${score}개 정답!`,()=>GAMES.data(key)); return; }
+    const n=4, vals=[], set=labels.slice(0,n);
+    while(vals.length<n){ const v=rnd(9)+2; if(!vals.includes(v)) vals.push(v); }
+    const max=Math.max(...vals);
+    document.getElementById('bars').innerHTML = vals.map((v,i)=>
+      `<div class="bar" style="height:${v/max*150}px"><b>${v}</b><span>${set[i]}</span></div>`).join('');
+    // 질문 유형
+    const types=[
+      {q:"가장 값이 큰 항목은?", ans:set[vals.indexOf(Math.max(...vals))]},
+      {q:"가장 값이 작은 항목은?", ans:set[vals.indexOf(Math.min(...vals))]},
+      {q:`값이 ${[...vals].sort((a,b)=>b-a)[1]}인 항목은?`, ans:set[vals.indexOf([...vals].sort((a,b)=>b-a)[1])]},
+    ];
+    const t=types[rnd(types.length)];
+    document.getElementById('q').className='msg';
+    document.getElementById('q').textContent=t.q;
+    document.getElementById('round').textContent=`${round}/${TOTAL}`;
+    document.getElementById('ch').innerHTML = shuffle(set.slice()).map(l=>`<button data-l="${l}">${l}</button>`).join('');
+    document.querySelectorAll('#ch button').forEach(b=>b.onclick=()=>{
+      if(b.dataset.l===t.ans){ score++; document.getElementById('score').textContent=score;
+        document.getElementById('q').className='msg good'; document.getElementById('q').textContent='정답! ✅'; }
+      else { document.getElementById('q').className='msg bad'; document.getElementById('q').textContent=`정답은 ${t.ans}`; }
+      round++;
+      setTimeout(make,700);
+    });
+  }
+  make();
+};
+
+/* ---------- 4) 정보과학: 물감 정렬 퍼즐 ---------- */
+GAMES.cs = function(key){
+  const CAP=4;
+  const colors=["#eb3b5a","#3867d6","#20bf6b","#f7b731"];
+  // 정렬된 상태에서 거꾸로 섞어 항상 풀리게 생성
+  let tubes;
+  function genSolvable(){
+    tubes = colors.map(c=>Array(CAP).fill(c));
+    tubes.push([]); tubes.push([]); // 빈 튜브 2개
+    for(let k=0;k<120;k++){
+      const from=rnd(tubes.length), to=rnd(tubes.length);
+      if(from===to||tubes[from].length===0||tubes[to].length>=CAP) continue;
+      tubes[to].push(tubes[from].pop());
+    }
+    // 이미 완성돼 있으면 다시
+    if(isWin()) return genSolvable();
+  }
+  let sel=-1, moves=0;
+  function isWin(){ return tubes.every(t=>t.length===0 || (t.length===CAP && t.every(c=>c===t[0]))); }
+  genSolvable();
+  stage.innerHTML = hud([{l:"이동 수",v:0,id:"mv"}]) +
+    `<p class="center" style="font-size:13px;color:#888">같은 색끼리 모으면 성공! 튜브를 눌러 붓고, 옮겨 담으세요.</p>
+     <div class="tubes" id="tubes"></div>
+     <div class="row"><button class="btn btn-ghost" id="reset">다시 섞기</button></div>`;
+  const wrap=document.getElementById('tubes');
+  function render(){
+    wrap.innerHTML='';
+    tubes.forEach((t,i)=>{
+      const el=document.createElement('div'); el.className='tube'+(sel===i?' sel':'');
+      t.forEach(c=>{ const s=document.createElement('div'); s.className='seg'; s.style.background=c; el.appendChild(s); });
+      el.onclick=()=>click(i); wrap.appendChild(el);
+    });
+    document.getElementById('mv').textContent=moves;
+  }
+  function click(i){
+    if(sel===-1){ if(tubes[i].length) sel=i; render(); return; }
+    if(sel===i){ sel=-1; render(); return; }
+    const from=tubes[sel], to=tubes[i];
+    const col=from[from.length-1];
+    if(to.length<CAP && (to.length===0 || to[to.length-1]===col)){
+      // 연속 같은 색 이동
+      let moved=false;
+      while(from.length && from[from.length-1]===col && to.length<CAP){ to.push(from.pop()); moved=true; }
+      if(moved) moves++;
+    }
+    sel=-1; render();
+    if(isWin()) setTimeout(()=>showResult(key,"🧪 정렬 완료!",`${moves}번 이동으로 성공!`,()=>GAMES.cs(key)),300);
+  }
+  document.getElementById('reset').onclick=()=>{ genSolvable(); sel=-1; moves=0; render(); };
+  render();
+};
+
+/* ---------- 5) 빅데이터 분석: 틀린 그림 찾기 ---------- */
+GAMES.big = function(key){
+  const N=5, TOTAL=5; let round=0, found=0, diffIdx, base, changed;
+  const pool=["🍎","🍊","🍋","🍇","🍉","🍓","🫐","🍑","🥝","🍒"];
+  stage.innerHTML = hud([{l:"라운드",v:`0/${TOTAL}`,id:"round"},{l:"성공",v:0,id:"found"}]) +
+    `<p class="center" style="font-size:13px;color:#888">두 그림에서 <b>딱 하나 다른 칸</b>을 찾아 누르세요!</p>
+     <div class="msg" id="msg"></div>
+     <div class="spot">
+       <div><div class="spot-label">그림 A</div><div class="grid" id="gA"></div></div>
+       <div><div class="spot-label">그림 B</div><div class="grid" id="gB"></div></div>
+     </div>`;
+  function make(){
+    if(round>=TOTAL){ showResult(key,"🔍 분석 완료!",`${TOTAL} 라운드 중 ${found}개 발견!`,()=>GAMES.big(key)); return; }
+    base = Array.from({length:N*N},()=>pool[rnd(pool.length)]);
+    changed = base.slice();
+    diffIdx = rnd(N*N);
+    let nw; do{ nw=pool[rnd(pool.length)]; }while(nw===base[diffIdx]);
+    changed[diffIdx]=nw;
+    renderGrid('gA',base,false); renderGrid('gB',changed,true);
+    document.getElementById('round').textContent=`${round}/${TOTAL}`;
+    document.getElementById('msg').textContent='';
+  }
+  function renderGrid(id,arr,clickable){
+    const g=document.getElementById(id); g.style.gridTemplateColumns=`repeat(${N},1fr)`;
+    g.innerHTML=arr.map((e,i)=>`<div class="g" data-i="${i}">${e}</div>`).join('');
+    if(clickable) g.querySelectorAll('.g').forEach(c=>c.onclick=()=>pick(+c.dataset.i));
+  }
+  function pick(i){
+    const msg=document.getElementById('msg');
+    if(i===diffIdx){ found++; document.getElementById('found').textContent=found;
+      msg.className='msg good'; msg.textContent='찾았어요! ✅'; }
+    else { msg.className='msg bad'; msg.textContent='다른 칸이에요 ❌'; return; }
+    round++; setTimeout(make,700);
+  }
+  make();
+};
+
+/* ---------- 6) 사물인터넷: 불 빠르게 끄기(두더지) ---------- */
+GAMES.iot = function(key){
+  const HOLES=9; let score=0, time=20, timer, spawner;
+  stage.innerHTML = hud([{l:"남은 시간",v:20,id:"time"},{l:"끈 불",v:0,id:"score"}]) +
+    `<p class="center" style="font-size:13px;color:#888">센서가 감지한 🔥 를 눌러 빠르게 끄세요! (20초)</p>
+     <div class="holes" id="holes"></div>`;
+  const holes=[];
+  for(let i=0;i<HOLES;i++){ const h=document.createElement('div'); h.className='hole';
+    h.onclick=()=>{ if(h.classList.contains('fire')){ h.classList.remove('fire'); h.textContent=''; score++; document.getElementById('score').textContent=score; } };
+    document.getElementById('holes').appendChild(h); holes.push(h); }
+  function spawn(){
+    const idle=holes.filter(h=>!h.classList.contains('fire'));
+    if(idle.length){ const h=idle[rnd(idle.length)]; h.classList.add('fire'); h.textContent='🔥';
+      setTimeout(()=>{ if(h.classList.contains('fire')){ h.classList.remove('fire'); h.textContent=''; } }, 900+rnd(500)); }
+  }
+  spawner=setInterval(spawn, 650);
+  timer=setInterval(()=>{ time--; document.getElementById('time').textContent=time;
+    if(time<=0){ clearInterval(timer); clearInterval(spawner);
+      showResult(key,"🔥 진화 완료!",`20초 동안 ${score}개의 불을 껐어요!`,()=>GAMES.iot(key)); } },1000);
+  // 화면 나갈 때 정리
+  const obs=new MutationObserver(()=>{ if(!document.body.contains(stage.querySelector('#holes'))){ clearInterval(timer); clearInterval(spawner); obs.disconnect(); } });
+  obs.observe(stage,{childList:true});
+};
+
+/* ---------- 7) 정보과제연구: 연구 순서 맞추기 ---------- */
+GAMES.research = function(key){
+  const correct=[
+    "① 탐구 문제·주제 정하기",
+    "② 자료·데이터 수집하기",
+    "③ 데이터 분석·해석하기",
+    "④ 결론 도출하기",
+    "⑤ 보고서 작성·발표하기",
+  ];
+  let order = shuffle(correct.slice());
+  while(order.join()===correct.join()) order=shuffle(correct.slice());
+  stage.innerHTML = `<p class="center" style="font-size:13px;color:#888">연구(탐구)가 이루어지는 순서대로 위/아래 화살표로 정렬하세요.</p>
+     <div class="order-list" id="list"></div>
+     <div class="row"><button class="btn btn-primary" id="check">정렬 확인</button></div>`;
+  function render(){
+    const list=document.getElementById('list');
+    list.innerHTML=order.map((t,i)=>`<div class="oitem"><span class="num">${i+1}</span><span class="txt">${t.replace(/^[①②③④⑤]\s/,'')}</span>
+      <span class="mv"><button data-u="${i}">▲</button><button data-d="${i}">▼</button></span></div>`).join('');
+    list.querySelectorAll('[data-u]').forEach(b=>b.onclick=()=>{ const i=+b.dataset.u; if(i>0){ [order[i-1],order[i]]=[order[i],order[i-1]]; render(); } });
+    list.querySelectorAll('[data-d]').forEach(b=>b.onclick=()=>{ const i=+b.dataset.d; if(i<order.length-1){ [order[i+1],order[i]]=[order[i],order[i+1]]; render(); } });
+  }
+  render();
+  document.getElementById('check').onclick=()=>{
+    if(order.join()===correct.join()) showResult(key,"📑 정렬 성공!","탐구 과정 순서를 정확히 맞췄어요!",()=>GAMES.research(key));
+    else { const m=document.createElement('div'); m.className='msg bad center'; m.textContent='순서가 아직 맞지 않아요. 다시 시도!';
+      const old=stage.querySelector('.msg'); if(old)old.remove(); stage.querySelector('.order-list').after(m); setTimeout(()=>m.remove(),1500); }
+  };
+};
+
+/* ---------- 8) 소프트웨어와 생활: 생활 SW 매칭 ---------- */
+GAMES.swlife = function(key){
+  const pairs=[
+    {a:"🗺️ 낯선 곳 길찾기", b:"내비게이션 앱"},
+    {a:"💬 친구와 대화", b:"메신저 앱"},
+    {a:"🎵 음악 듣기", b:"음악 스트리밍"},
+    {a:"💳 물건 값 결제", b:"모바일 페이"},
+    {a:"📸 사진 보정", b:"이미지 편집 SW"},
+  ];
+  const left=pairs.map((p,i)=>({t:p.a,id:i}));
+  const right=shuffle(pairs.map((p,i)=>({t:p.b,id:i})));
+  let selL=-1, done=0;
+  stage.innerHTML = `<p class="center" style="font-size:13px;color:#888">왼쪽 상황과 알맞은 소프트웨어를 짝지어 연결하세요!</p>
+     <div class="msg" id="msg"></div>
+     <div class="match"><div class="mcol" id="L"></div><div class="mcol" id="R"></div></div>`;
+  const L=document.getElementById('L'), R=document.getElementById('R');
+  L.innerHTML=left.map(x=>`<div class="mcell" data-id="${x.id}">${x.t}</div>`).join('');
+  R.innerHTML=right.map(x=>`<div class="mcell" data-id="${x.id}">${x.t}</div>`).join('');
+  L.querySelectorAll('.mcell').forEach(c=>c.onclick=()=>{
+    if(c.classList.contains('done'))return;
+    L.querySelectorAll('.mcell').forEach(x=>x.classList.remove('sel'));
+    c.classList.add('sel'); selL=+c.dataset.id;
+  });
+  R.querySelectorAll('.mcell').forEach(c=>c.onclick=()=>{
+    if(c.classList.contains('done')||selL===-1)return;
+    const msg=document.getElementById('msg');
+    if(+c.dataset.id===selL){
+      c.classList.add('done'); L.querySelector(`.mcell.sel`).classList.add('done');
+      L.querySelectorAll('.mcell').forEach(x=>x.classList.remove('sel')); selL=-1; done++;
+      msg.className='msg good'; msg.textContent='연결 성공! ✅';
+      if(done===pairs.length) setTimeout(()=>showResult(key,"📱 매칭 완료!","생활 속 소프트웨어를 모두 연결했어요!",()=>GAMES.swlife(key)),400);
+    } else { msg.className='msg bad'; msg.textContent='짝이 맞지 않아요 ❌'; }
+    setTimeout(()=>{ if(msg) msg.textContent=''; },800);
+  });
+};
+
+/* 시작 */
+buildHub();
+</script>
+</body>
+</html>
