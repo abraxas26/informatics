@@ -57,6 +57,8 @@
   .room .icon{ font-size:26px; display:block; }
   .room .rname{ display:block; font-size:13px; font-weight:bold; margin-top:4px; color:#333; }
   .room .rgame{ display:block; font-size:11px; color:var(--muted); margin-top:2px; }
+  .footer{ text-align:center; margin-top:22px; font-size:13px; color:#b2bec3; }
+  .footer b{ color:#6c5ce7; }
   .ground{ height:16px; background:#7bed9f; border:3px solid #2ed573; border-top:none;
     border-radius:0 0 16px 16px; }
   .door{ width:46px; height:34px; background:#8b5a2b; border-radius:8px 8px 0 0; margin:0 auto;
@@ -197,6 +199,7 @@
       <div class="rooms c1" data-floor="1"></div>
     </div>
     <div class="ground"><div class="door"></div></div>
+    <p class="footer">© copyright 보람고등학교 <b>윤정샘</b></p>
   </div>
 
   <!-- ========== 게임 화면 ========== -->
@@ -476,7 +479,7 @@ GAMES.big = function(key){
     diffIdx = rnd(N*N);
     let nw; do{ nw=pool[rnd(pool.length)]; }while(nw===base[diffIdx]);
     changed[diffIdx]=nw;
-    renderGrid('gA',base,false); renderGrid('gB',changed,true);
+    renderGrid('gA',base,true); renderGrid('gB',changed,true);
     document.getElementById('round').textContent=`${round}/${TOTAL}`;
     document.getElementById('msg').textContent='';
   }
