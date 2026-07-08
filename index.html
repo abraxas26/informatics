@@ -165,6 +165,12 @@
   .ev-note{ font-size:12px; color:var(--muted); text-align:center; line-height:1.6; }
   .ev-poem{ background:#f3f0ff; border:1px dashed #b8b0ff; border-radius:14px; padding:16px; margin:12px 0; text-align:center; line-height:1.9; font-size:16px; }
   .ev-poem b{ color:var(--purple); margin-right:6px; }
+
+  /* ===== 스네이크 게임 ===== */
+  .snake-wrap{ display:flex; justify-content:center; margin:10px 0 4px; }
+  canvas.snake{ background:#1e1e2f; border-radius:12px; touch-action:none; image-rendering:pixelated; max-width:100%; }
+  .snake-credit{ text-align:center; font-size:11px; color:var(--muted); margin-top:10px; line-height:1.6; }
+  .snake-credit b{ color:var(--purple); }
 </style>
 </head>
 <body>
@@ -217,7 +223,7 @@
    교과 데이터
 ============================================================ */
 const SUBJECTS = {
-  info:   {name:"정보", icon:"💻", game:"미로 탈출", floor:1},
+  info:   {name:"정보", icon:"🐍", game:"스네이크 게임", floor:1},
   ai:     {name:"인공지능 기초", icon:"🤖", game:"강아지·고양이 분류", floor:2},
   data:   {name:"데이터 과학", icon:"📊", game:"그래프 정답 맞히기", floor:2},
   cs:     {name:"정보과학", icon:"🧪", game:"물감 정렬 퍼즐", floor:2},
@@ -292,56 +298,105 @@ const shuffle = a => { for(let i=a.length-1;i>0;i--){ const j=rnd(i+1); [a[i],a[
 ============================================================ */
 const GAMES = {};
 
-/* ---------- 1) 정보: 미로 탈출 ---------- */
+/* ---------- 1) 정보: 스네이크 게임 (학생 제작) ---------- */
 GAMES.info = function(key){
-  const COLS=9, ROWS=9;
-  // 셀별 벽 {N,E,S,W}
-  const cells = Array.from({length:ROWS},()=>Array.from({length:COLS},()=>({N:1,E:1,S:1,W:1,v:0})));
-  const dirs=[['N',0,-1,'S'],['E',1,0,'W'],['S',0,1,'N'],['W',-1,0,'E']];
-  (function carve(x,y){
-    cells[y][x].v=1;
-    for(const [d,dx,dy,opp] of shuffle(dirs.slice())){
-      const nx=x+dx, ny=y+dy;
-      if(nx>=0&&nx<COLS&&ny>=0&&ny<ROWS&&!cells[ny][nx].v){
-        cells[y][x][d]=0; cells[ny][nx][opp]=0; carve(nx,ny);
-      }
-    }
-  })(0,0);
+  const COLS=15, ROWS=15;
+  const CELL = Math.max(18, Math.min(28, Math.floor((Math.min(460, window.innerWidth-70))/COLS)));
+  const W = COLS*CELL, H = ROWS*CELL;
+  const START_FPS = 7;
 
-  let px=0, py=0; let steps=0;
-  stage.innerHTML = hud([{l:"이동 수",v:0,id:"steps"}]) +
-    `<p class="center" style="font-size:13px;color:#888">🙂 를 움직여 🚪 까지 탈출! (방향키 또는 아래 버튼)</p>
-     <div class="maze" id="maze"></div>
+  // 이미지 로딩 (학생들이 그린 픽셀 아트 사용)
+  const IMG = {};
+  ['head_default','head_eat','head_hit','body','tail','food'].forEach(n=>{
+    const im=new Image(); im.src='assets/snake/'+n+'.png'; IMG[n]=im;
+  });
+
+  stage.innerHTML = hud([{l:"점수",v:0,id:"sScore"},{l:"길이",v:3,id:"sLen"}]) +
+    `<p class="center" style="font-size:13px;color:#888">🍎 를 먹으며 뱀을 키우세요! 벽·몸에 부딪히면 끝 (방향키 또는 아래 버튼)</p>
+     <div class="snake-wrap"><canvas class="snake" id="scanvas" width="${W}" height="${H}"></canvas></div>
      <div class="dpad">
        <button class="u">▲</button><button class="l">◀</button>
        <button class="d">▼</button><button class="r">▶</button>
-     </div>`;
-  const maze = document.getElementById('maze');
-  maze.style.gridTemplateColumns=`repeat(${COLS},32px)`;
-  const cellEls=[];
-  for(let y=0;y<ROWS;y++) for(let x=0;x<COLS;x++){
-    const el=document.createElement('div'); el.style.width='32px'; el.style.height='32px';
-    el.className='cell'+(cells[y][x].N?' wN':'')+(cells[y][x].E?' wE':'')+(cells[y][x].S?' wS':'')+(cells[y][x].W?' wW':'');
-    if(x===COLS-1&&y===ROWS-1) el.classList.add('goal');
-    maze.appendChild(el); cellEls.push(el);
+     </div>
+     <p class="snake-credit">🐍 <b>스네이크 게임</b> · 제작: 10824 정규성 · 10904 김기훈 · 10909 박상훈 · 10914 송준섭</p>`;
+
+  const cv = document.getElementById('scanvas');
+  const ctx = cv.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+
+  const UP={x:0,y:-1}, DOWN={x:0,y:1}, LEFT={x:-1,y:0}, RIGHT={x:1,y:0};
+  let snake, dir, nextDir, food, score, status, alive, timer;
+
+  function reset(){
+    snake=[{x:5,y:7},{x:4,y:7},{x:3,y:7}];
+    dir=RIGHT; nextDir=RIGHT; score=0; status='default'; alive=true;
+    placeFood();
   }
-  const draw=()=>{ cellEls.forEach(e=>e.classList.remove('player')); cellEls[py*COLS+px].classList.add('player'); };
-  draw();
-  function move(dir){
-    const c=cells[py][px];
-    if(dir==='N'&&!c.N)py--; else if(dir==='S'&&!c.S)py++;
-    else if(dir==='W'&&!c.W)px--; else if(dir==='E'&&!c.E)px++; else return;
-    steps++; document.getElementById('steps').textContent=steps; draw();
-    if(px===COLS-1&&py===ROWS-1){ off();
-      showResult(key,"🎉 탈출 성공!",`${steps}번 만에 미로를 빠져나왔어요!`,()=>GAMES.info(key)); }
+  function placeFood(){
+    do { food={x:rnd(COLS),y:rnd(ROWS)}; }
+    while(snake.some(s=>s.x===food.x&&s.y===food.y));
   }
-  const kb=e=>{ const m={ArrowUp:'N',ArrowDown:'S',ArrowLeft:'W',ArrowRight:'E'}; if(m[e.key]){ e.preventDefault(); move(m[e.key]); } };
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    ctx.fillStyle='#1e1e2f'; ctx.fillRect(0,0,W,H);
+    blit(IMG.food, food.x, food.y);
+    snake.forEach((seg,i)=>{
+      let img;
+      if(i===0) img = status==='hit'?IMG.head_hit : status==='eat'?IMG.head_eat : IMG.head_default;
+      else if(i===snake.length-1) img = IMG.tail;
+      else img = IMG.body;
+      blit(img, seg.x, seg.y);
+    });
+  }
+  function blit(img,gx,gy){
+    if(img.complete && img.naturalWidth) ctx.drawImage(img, gx*CELL, gy*CELL, CELL, CELL);
+    else { ctx.fillStyle='#7bed9f'; ctx.fillRect(gx*CELL+1, gy*CELL+1, CELL-2, CELL-2); }
+  }
+  function stepMove(){
+    dir=nextDir;
+    const head={x:snake[0].x+dir.x, y:snake[0].y+dir.y};
+    const hitWall = head.x<0||head.x>=COLS||head.y<0||head.y>=ROWS;
+    const hitSelf = snake.some((s,i)=> i<snake.length-1 && s.x===head.x && s.y===head.y);
+    if(hitWall||hitSelf){ gameOver(); return; }
+    snake.unshift(head);
+    if(head.x===food.x && head.y===food.y){
+      score++; status='eat'; placeFood();
+      document.getElementById('sScore').textContent=score;
+    } else {
+      snake.pop(); status='default';
+    }
+    document.getElementById('sLen').textContent=snake.length;
+    draw();
+  }
+  function gameOver(){
+    alive=false; status='hit'; draw(); stop();
+    showResult(key,"🐍 게임 오버!",`먹이 ${score}개를 먹고 길이 ${snake.length}가 되었어요!`,()=>GAMES.info(key));
+  }
+
+  function setDir(nd){
+    if(dir.x+nd.x===0 && dir.y+nd.y===0) return;
+    nextDir=nd;
+  }
+  const kb=e=>{
+    const m={ArrowUp:UP,ArrowDown:DOWN,ArrowLeft:LEFT,ArrowRight:RIGHT};
+    if(m[e.key]){ e.preventDefault(); setDir(m[e.key]); }
+  };
   document.addEventListener('keydown',kb);
-  function off(){ document.removeEventListener('keydown',kb); }
-  stage.querySelector('.dpad .u').onclick=()=>move('N');
-  stage.querySelector('.dpad .d').onclick=()=>move('S');
-  stage.querySelector('.dpad .l').onclick=()=>move('W');
-  stage.querySelector('.dpad .r').onclick=()=>move('E');
+  stage.querySelector('.dpad .u').onclick=()=>setDir(UP);
+  stage.querySelector('.dpad .d').onclick=()=>setDir(DOWN);
+  stage.querySelector('.dpad .l').onclick=()=>setDir(LEFT);
+  stage.querySelector('.dpad .r').onclick=()=>setDir(RIGHT);
+
+  function loop(){ if(alive) stepMove(); }
+  function start(){ timer=setInterval(loop, 1000/START_FPS); }
+  function stop(){ if(timer){ clearInterval(timer); timer=null; } }
+
+  const obs=new MutationObserver(()=>{
+    if(!document.body.contains(cv)){ stop(); document.removeEventListener('keydown',kb); obs.disconnect(); }
+  });
+  obs.observe(stage,{childList:true});
+
+  reset(); draw(); start();
 };
 
 /* ---------- 2) 인공지능 기초: 강아지/고양이 분류 ---------- */
