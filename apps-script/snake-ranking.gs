@@ -51,9 +51,20 @@ function topScores() {
   var last = sh.getLastRow();
   if (last < 2) return [];
   var values = sh.getRange(2, 1, last - 1, 4).getValues(); // 헤더 제외
-  var list = values.map(function (r) {
-    return { name: String(r[1] || '익명'), score: Number(r[2]) || 0, length: Number(r[3]) || 0 };
+
+  // 같은 이름은 최고 점수만 남김 (TOP_N 자르기 전에 중복 제거)
+  var best = {};
+  values.forEach(function (r) {
+    var name = String(r[1] || '').trim();
+    if (!name) return;
+    var score = Number(r[2]) || 0;
+    var length = Number(r[3]) || 0;
+    if (!best[name] || score > best[name].score) {
+      best[name] = { name: name, score: score, length: length };
+    }
   });
+
+  var list = Object.keys(best).map(function (k) { return best[k]; });
   list.sort(function (a, b) { return b.score - a.score; });
   return list.slice(0, TOP_N);
 }

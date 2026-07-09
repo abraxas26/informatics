@@ -383,15 +383,25 @@ async function loadSnakeRanking(listEl){
   } else {
     top = getLocalSnake();
   }
-  top = top.slice().sort((a,b)=>(b.score||0)-(a.score||0)).slice(0,10);
+  top = dedupeByName(top).sort((a,b)=>(b.score||0)-(a.score||0)).slice(0,10);
   if(!top.length){ listEl.innerHTML='<li class="rank-empty">아직 기록이 없어요. 1등에 도전! 🏁</li>'; return; }
   const medal=i=> i<3 ? ['🥇','🥈','🥉'][i] : (i+1);
   listEl.innerHTML = top.map((r,i)=>
     `<li><span class="rk">${medal(i)}</span><span class="rn">${escapeHtml(r.name||'익명')}</span><span class="rs">${r.score||0}</span></li>`).join('');
 }
 
+// 같은 이름은 최고 점수만 남김
+function dedupeByName(list){
+  const best={};
+  (list||[]).forEach(r=>{
+    const name=(r.name==null?'':String(r.name)).trim()||'익명';
+    const score=r.score||0;
+    if(!(name in best) || score>best[name].score) best[name]={name, score};
+  });
+  return Object.values(best);
+}
 function saveLocalSnake(name, score){
-  const a=getLocalSnake(); a.push({name, score});
+  const a=dedupeByName([...getLocalSnake(), {name, score}]);
   a.sort((x,y)=>(y.score||0)-(x.score||0));
   try{ localStorage.setItem('snake_scores', JSON.stringify(a.slice(0,50))); }catch(_){}
 }
