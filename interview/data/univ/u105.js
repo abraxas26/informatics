@@ -1,0 +1,1 @@
+window.IV=window.IV||{};IV.univ=IV.univ||{};IV.univ["u105"]={"univ":"강남대학교","reviews":[],"official":[{"category":"인성적 자질","jeonhyeong":"","q":"분리수거 도우미로 봉사를 해왔는데, 이 활동에 참여한 계기는 무엇인가요? 힘들었던 점을 어떻게 극복했나요?","src":"경기도 진학 연구팀(진심) 「2026 면접을 준비하다」"}]};

@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>생기부 기반 대입 면접 준비</title>
+<meta name="description" content="시·도교육청 면접 자료집 기반 대학·학과별 면접 후기, 공통 면접 문항, 제시문 기반 기출, 생기부 AI 분석 예상 문항">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Gowun+Dodum&family=JetBrains+Mono:wght@500;700&family=Noto+Sans+KR:wght@500;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="top">
+  <div class="top-in">
+    <div class="brand">
+      <span class="dot">🎓</span>
+      <span>생기부 기반 대입 면접 준비<small>실제 면접 후기 · 공통 문항 · AI 생기부 분석</small></span>
+    </div>
+    <nav class="tabs" role="tablist" aria-label="메뉴">
+      <button class="tab" role="tab" id="tab-reviews"  aria-selected="true"  data-view="reviews">🏫 대학·학과별 면접 후기</button>
+      <button class="tab" role="tab" id="tab-common"   aria-selected="false" data-view="common">💬 공통 면접 문항</button>
+      <button class="tab" role="tab" id="tab-jesimun"  aria-selected="false" data-view="jesimun">📄 제시문 기반 기출</button>
+      <button class="tab" role="tab" id="tab-analyze"  aria-selected="false" data-view="analyze">🤖 생기부 분석</button>
+    </nav>
+    <button class="icon-btn" id="themeBtn" title="밝게/어둡게 전환" aria-label="밝게/어둡게 전환">◐</button>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- ══ 1. 면접 후기 ══════════════════════════════ -->
+  <section id="view-reviews" role="tabpanel" aria-labelledby="tab-reviews">
+    <div class="hero">
+      <h1>대학 · 학과별 면접 후기</h1>
+      <p><span>시·도교육청이 펴낸 면접 자료집에서 실제 응시생이 남긴 면접 복기를 대학·학과별로 정리했습니다.</span></p>
+      <div class="stats" id="stats"></div>
+    </div>
+
+    <div class="grid-2">
+      <aside class="panel pad">
+        <label class="field">
+          <span>대학 선택</span>
+          <select id="univSelect"><option value="">— 목록에서 선택 —</option></select>
+        </label>
+        <label class="field">
+          <span>대학 찾기</span>
+          <input type="text" id="univFilter" placeholder="예) 부산대, 교육대, 경희" autocomplete="off">
+        </label>
+        <div class="ulist" id="univList"></div>
+      </aside>
+
+      <div>
+        <div class="panel pad" style="margin-bottom:18px">
+          <label class="field" style="margin-bottom:8px">
+            <span>전체 문항 검색 <span style="font-weight:400;color:var(--ink-3)">— 5,000여 개 실제 질문에서 키워드로 찾기</span></span>
+            <div class="row">
+              <input type="text" id="qSearch" placeholder="예) 전공적합성, 갈등, 세포호흡, 마지막으로" autocomplete="off" style="flex:1;min-width:200px">
+              <button class="btn" id="qSearchBtn">검색</button>
+            </div>
+          </label>
+          <div class="hint">학과명·질문 내용 모두 검색됩니다. 결과를 누르면 해당 대학의 후기로 이동합니다.</div>
+          <div id="qSearchResult"></div>
+        </div>
+
+        <div id="univDetail" class="panel"><div class="empty">왼쪽에서 대학을 선택하세요.</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ 2. 공통 면접 문항 ═════════════════════════ -->
+  <section id="view-common" role="tabpanel" aria-labelledby="tab-common" hidden>
+    <div class="hero">
+      <h1>공통 면접 문항</h1>
+      <p><span>거의 모든 학생부 기반 면접에서 반복되는 8가지 문항 유형입니다.</span>
+         <span>출제 비율은 이 사이트가 수집한 실제 기출 문항을 분석해 산출했습니다.</span></p>
+    </div>
+
+    <div class="panel" style="margin-bottom:18px">
+      <div class="practice">
+        <div class="badge" id="pracCat">연습 모드</div>
+        <div class="q" id="pracQ">아래 버튼을 눌러 실제 기출 문항으로 답변 연습을 시작하세요.</div>
+        <div class="timer" id="pracTimer">00:00</div>
+        <div class="hint" id="pracHint">권장 답변 시간 60초 · 소리 내어 말하며 연습하세요</div>
+        <div class="row" style="justify-content:center;margin-top:14px">
+          <button class="btn" id="pracNext">랜덤 문항 뽑기</button>
+          <button class="btn sub" id="pracToggle">타이머 시작</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel pad" style="margin-bottom:18px">
+      <label class="field" style="margin-bottom:8px">
+        <span>학과로 찾기 <span style="font-weight:400;color:var(--ink-3)">— 지원 학과와 비슷한 학과에서 실제로 나온 문항만 모아 봅니다</span></span>
+        <div class="row">
+          <input type="text" id="deptSearch" placeholder="예) 컴퓨터, 간호, 교육, 화학공학, 경영" autocomplete="off" style="flex:1;min-width:200px">
+          <button class="btn" id="deptSearchBtn">찾기</button>
+        </div>
+      </label>
+      <div class="chips" id="deptSuggest" style="margin-bottom:4px"></div>
+      <div id="deptResult"></div>
+    </div>
+
+    <div class="chips" id="commonChips" style="margin-bottom:14px"></div>
+    <div id="commonList"></div>
+  </section>
+
+  <!-- ══ 3. 제시문 기반 기출 ══════════════════════ -->
+  <section id="view-jesimun" role="tabpanel" aria-labelledby="tab-jesimun" hidden>
+    <div class="hero">
+      <h1>제시문 기반 기출 · MMI</h1>
+      <p><span>고려대·서울대·연세대·성균관대·KAIST·KENTECH·부산교대의 제시문 기반 면접과 의예과 MMI 기출입니다.</span>
+         <span>문제와 함께 출제 의도 · 문항 해설 · 채점 기준 · 예시 답안까지 볼 수 있습니다.</span></p>
+      <div class="stats" id="jStats"></div>
+    </div>
+
+    <div class="grid-2">
+      <aside class="panel pad">
+        <label class="field">
+          <span>문제 선택</span>
+          <select id="jSelect"><option value="">— 목록에서 선택 —</option></select>
+        </label>
+        <div class="chips" id="jModeChips" style="margin-bottom:10px"></div>
+        <div class="ulist" id="jList"></div>
+      </aside>
+      <div id="jDetail" class="panel"><div class="empty">왼쪽에서 문제를 선택하세요.</div></div>
+    </div>
+  </section>
+
+  <!-- ══ 4. 생기부 분석 ════════════════════════════ -->
+  <section id="view-analyze" role="tabpanel" aria-labelledby="tab-analyze" hidden>
+    <div class="hero">
+      <h1>생기부 분석 · 예상 면접 문항</h1>
+      <p><span>본인의 Gemini API 키를 등록하고 학교생활기록부를 붙여넣으면,</span>
+         <span>기록을 분석해 예상 면접 문항과 답변 포인트를 만들어 줍니다.</span></p>
+    </div>
+
+    <div class="panel pad" style="margin-bottom:18px">
+      <h3 style="margin:0 0 4px;font-size:16px">① Gemini API 키 등록</h3>
+      <p class="hint" style="margin:0 0 12px">
+        키는 이 브라우저에만 저장되며(localStorage) 서버로 전송되지 않습니다.
+        <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">Google AI Studio에서 키 발급 →</a>
+      </p>
+      <div class="row" style="align-items:flex-end">
+        <label class="field" style="flex:2;min-width:240px;margin-bottom:0">
+          <span>API 키</span>
+          <input type="password" id="apiKey" placeholder="AIza..." autocomplete="off">
+        </label>
+        <label class="field" style="flex:1.4;min-width:200px;margin-bottom:0">
+          <span>모델</span>
+          <select id="model"><option value="gemini-3.6-flash">gemini-3.6-flash (기본)</option><option value="gemini-2.5-flash">gemini-2.5-flash</option><option value="gemini-2.5-pro">gemini-2.5-pro</option></select>
+        </label>
+        <button class="btn sub" id="loadModels">모델 목록 불러오기</button>
+        <button class="btn" id="saveKey">저장</button>
+        <button class="btn sub" id="clearKey">삭제</button>
+      </div>
+      <div id="keyState" class="hint"></div>
+    </div>
+
+    <div class="panel pad" style="margin-bottom:18px">
+      <h3 style="margin:0 0 12px;font-size:16px">② 지원 정보</h3>
+      <div class="row">
+        <label class="field" style="flex:1;min-width:180px"><span>지원 대학</span>
+          <input type="text" id="inUniv" list="univOptions" placeholder="예) 부산대학교"></label>
+        <datalist id="univOptions"></datalist>
+        <label class="field" style="flex:1;min-width:180px"><span>지원 학과</span>
+          <input type="text" id="inDept" placeholder="예) 기계공학부"></label>
+        <label class="field" style="flex:1;min-width:180px"><span>전형</span>
+          <input type="text" id="inJh" placeholder="예) 학생부종합(학생부종합전형)"></label>
+      </div>
+    </div>
+
+    <div class="panel pad" style="margin-bottom:18px">
+      <h3 style="margin:0 0 4px;font-size:16px">③ 생기부 입력</h3>
+      <p class="hint" style="margin:0 0 12px">
+        교과 세특 · 창의적 체험활동 · 행동특성 및 종합의견 등을 붙여넣거나 PDF·TXT 파일을 올리세요.
+        올린 내용은 <b>브라우저 안에서 먼저 개인정보가 자동으로 가려진 뒤</b> 입력창에 표시됩니다.
+      </p>
+
+      <div class="row" style="margin-bottom:12px;align-items:flex-end">
+        <label class="field" style="flex:1;min-width:220px;margin-bottom:0">
+          <span>지울 이름 <span style="font-weight:400;color:var(--ink-3)">— 본인·친구·교사 이름을 쉼표로 적으면 본문 전체에서 지웁니다 (선택)</span></span>
+          <input type="text" id="myName" placeholder="예) 홍길동, 이서준, 김영희" autocomplete="off">
+        </label>
+        <button class="btn sub" id="maskBtn" style="flex:none">개인정보 다시 검사</button>
+      </div>
+
+      <textarea id="record" rows="14" placeholder="여기에 생활기록부 내용을 붙여넣으세요. PDF·TXT 파일을 올려도 됩니다."></textarea>
+      <div id="maskReport"></div>
+      <div class="row" style="margin-top:10px">
+        <input type="file" id="recFile" accept=".txt,.pdf,text/plain,application/pdf">
+        <span class="hint" id="recCount">0자</span>
+        <button class="btn" id="analyzeBtn" style="margin-left:auto">분석하고 예상 문항 만들기</button>
+      </div>
+
+      <div class="notice" style="margin-top:14px">
+        <b>보내지기 전에 이렇게 처리됩니다</b>
+        <ol style="margin:8px 0 0;padding-left:20px">
+          <li>파일은 서버로 올라가지 않습니다. 브라우저가 직접 읽습니다.</li>
+          <li>주민등록번호 · 전화번호 · 이메일 · 주소 · 출신 학교명 · 수험번호 · 반/번호와
+              인적·학적사항 표를 자동으로 가립니다.</li>
+          <li>입력창에 <b>실제로 전송될 내용</b>이 그대로 보입니다. 남은 정보는 직접 지워 주세요.</li>
+          <li>주민등록번호·전화번호·이메일이 남아 있으면 전송이 차단됩니다.</li>
+          <li>그 다음 사용자의 API 키로 <b>Google Gemini API에 직접</b> 전송됩니다.
+              이 사이트는 어떤 내용도 저장하지 않습니다.</li>
+        </ol>
+      </div>
+    </div>
+
+    <div id="analyzeOut"></div>
+  </section>
+
+</main>
+
+<footer class="site">
+  <b>자료 출처</b><br>
+  · 울산광역시교육청 「2025 대입 면접후기 자료집」<br>
+  · 경상남도교육청 「2026학년도 대입을 위한 면접 전략 자료집[학생부 기반]」<br>
+  · 세종특별자치시교육청 「보인다! 5.0 면접지도 길라잡이」 — 2024학년도 대입 면접 후기<br>
+  · 인천광역시교육청 「2026학년도 대입 구술면접자료집」 — 서류 기반 및 인성 면접<br>
+  · 경기도 진학 연구팀(진심) 「2026 면접을 준비하다」 — 2025 선행학습영향평가 결과보고서 면접예시문항<br>
+  · 부산광역시교육청학력개발원 「2026학년도 대입 수시모집 대비 면접자료집」 — 제시문 기반 면접 · MMI<br>
+  <span style="display:block;margin-top:10px">
+    후기는 응시생이 기억에 의존해 직접 작성한 기록이므로 실제 문항·표현과 다를 수 있습니다.
+    전형 방법과 면접 방식은 매년 달라지므로 반드시 지원 대학의 최신 모집요강을 확인하세요.
+  </span>
+  <p class="made-by">
+    <span>@보람고 윤정샘 제작<br>모두 끝까지 화이팅!</span>
+  </p>
+</footer>
+
+<script src="data/index.js"></script>
+<script src="data/common.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
