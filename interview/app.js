@@ -7,7 +7,7 @@ const esc = (s) => String(s == null ? '' : s)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
   .replace(/"/g, '&quot;');
 
-const ASSET_VER = '20260911c';   // 배포마다 올려 브라우저 캐시를 갱신한다
+const ASSET_VER = '20260911d';   // 배포마다 올려 브라우저 캐시를 갱신한다
 const OFFICIAL = '__official__';
 const ADMISSION = '__admission__';   // 학과 필터와 섞이지 않는 특수 키
 
@@ -125,8 +125,13 @@ function renderUnivSelect() {
 
 function renderUnivList(filter) {
   const q = (filter || '').trim();
-  const list = state.index.universities.filter((u) =>
+  let list = state.index.universities.filter((u) =>
     !q || u.name.includes(q) || u.depts.some((d) => d.includes(q)));
+  if (q) {
+    // '서울대' 로 찾을 때 남서울대가 먼저 나오지 않도록, 이름이 검색어로 시작하는 대학을 위로
+    const rank = (u) => (u.name.startsWith(q) ? 0 : u.name.includes(q) ? 1 : 2);
+    list = list.slice().sort((a, b) => rank(a) - rank(b) || b.reviews - a.reviews);
+  }
   const box = $('#univList');
   if (!list.length) { box.innerHTML = '<div class="empty">검색 결과가 없습니다.</div>'; return; }
   box.innerHTML = list.map((u) => `
