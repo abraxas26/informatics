@@ -21,7 +21,13 @@ Q_TAG = re.compile(r"^\[\s*질\s*문\s*\d*\s*\]\s*")
 A_TAG = re.compile(r"^\[\s*답\s*변\s*\d*\s*\]\s*")
 Q_NUM = re.compile(r"^(\d{1,2})\s*[.)]\s+")
 A_DASH = re.compile(r"^[-‐–—]\s+")
-FOOT = ("면접 사례집", "면접 후기집", "대학면접 후기집", "진로전담", "교사협의회")
+Q_LETTER = re.compile(r"^Q\s*\d*\s*[.:)]\s*")
+A_LETTER = re.compile(r"^A\s*\d*\s*[.:)]\s*")
+FOOT = ("면접 사례집", "면접 후기집", "대학면접 후기집", "진로전담", "교사협의회",
+        "충청북도교육청", "충북교육청")
+# 질문이 끝났다고 볼 수 있는 어미 — 번호형 문답에서 답변 시작점을 잡는 데 쓴다
+Q_END = re.compile(r"([?？]|요[.?]?|오[.?]?|까[?]?|나요[?]?|가요[?]?|세요[.]?|시오[.]?|"
+                   r"이유[?]?|말[?]?|무엇인가[?]?|십시오[.]?)\s*$")
 
 
 def clean(t):
@@ -48,6 +54,8 @@ class Rec:
         self.qa, self.qbuf, self.abuf = [], [], []
         self.mode = "head"
         self.cur = None          # 여러 줄에 걸친 값을 이어 붙일 곳
+        self.awaiting = None     # 지금 모으는 것이 질문인지 답변인지
+        self.style = None        # 'tag' = [질문]/[답변]·Q:/A:,  'num' = 번호만 있는 형식
 
     def flush_qa(self):
         if self.qbuf:
@@ -55,6 +63,8 @@ class Rec:
             if len(q) >= 6:
                 self.qa.append({"q": q, "a": a})
         self.qbuf, self.abuf = [], []
+        self.awaiting = None
+        self.style = None
 
     def out(self):
         self.flush_qa()
@@ -117,20 +127,36 @@ def main():
                 continue
 
             if rec.mode == "qa":
-                if Q_TAG.match(s):
+                if Q_TAG.match(s) or Q_LETTER.match(s):
                     rec.flush_qa()
-                    rec.qbuf.append(Q_TAG.sub("", t.lstrip()))
-                elif A_TAG.match(s):
+                    tag = Q_TAG if Q_TAG.match(s) else Q_LETTER
+                    rec.qbuf.append(tag.sub("", t.lstrip()))
+                    rec.style, rec.awaiting = "tag", "q"
+                elif A_TAG.match(s) or A_LETTER.match(s):
                     if rec.qbuf:
-                        rec.abuf.append(A_TAG.sub("", t.lstrip()))
+                        tag = A_TAG if A_TAG.match(s) else A_LETTER
+                        rec.abuf.append(tag.sub("", t.lstrip()))
+                        rec.style, rec.awaiting = "tag", "a"
                 elif Q_NUM.match(s) and x0 < 110:
                     rec.flush_qa()
-                    rec.qbuf.append(Q_NUM.sub("", t.lstrip()))
+                    q = Q_NUM.sub("", t.lstrip())
+                    rec.qbuf.append(q)
+                    rec.style = "num"
+                    # 표시가 없는 번호형 자료는 어미로 질문의 끝을 판단한다
+                    rec.awaiting = "a" if Q_END.search(q.strip()) else "q"
                 elif A_DASH.match(s) and x0 < 110:
                     if rec.qbuf:
                         rec.abuf.append(A_DASH.sub("", t.lstrip()))
+                        rec.awaiting = "a"
                 elif rec.qbuf:
-                    (rec.abuf if rec.abuf else rec.qbuf).append(t.lstrip())
+                    if rec.awaiting == "q":
+                        rec.qbuf.append(t.lstrip())
+                        # 번호형에서만 어미로 답변 시작을 추정한다
+                        if rec.style == "num" and (Q_END.search(s)
+                                                   or len(" ".join(rec.qbuf)) > 130):
+                            rec.awaiting = "a"
+                    else:
+                        rec.abuf.append(t.lstrip())
                 continue
 
             # 머리 표: 같은 칸(행)에서 왼쪽에 가장 가까운 라벨에 값을 붙인다.

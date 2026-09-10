@@ -7,7 +7,7 @@ const esc = (s) => String(s == null ? '' : s)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
   .replace(/"/g, '&quot;');
 
-const ASSET_VER = '20260911b';   // 배포마다 올려 브라우저 캐시를 갱신한다
+const ASSET_VER = '20260911c';   // 배포마다 올려 브라우저 캐시를 갱신한다
 const OFFICIAL = '__official__';
 const ADMISSION = '__admission__';   // 학과 필터와 섞이지 않는 특수 키
 
@@ -135,7 +135,10 @@ function renderUnivList(filter) {
       <small>후기 ${u.reviews} · 문항 ${u.questions + u.official}</small>
     </button>`).join('');
   $$('.uitem', box).forEach((b) =>
-    b.addEventListener('click', () => { clearReturn(); selectUniv(b.dataset.slug); }));
+    b.addEventListener('click', () => {
+      clearReturn();
+      selectUniv(b.dataset.slug, { scroll: true });
+    }));
 }
 
 function reviewCard(r, terms, ri) {
@@ -163,7 +166,7 @@ function reviewCard(r, terms, ri) {
     ${kv.join('')}
     <div class="qa">${r.qa.map((qa, i) => `
       <details ${i < 3 ? 'open' : ''}>
-        <summary>${highlight(qa.q, terms)}</summary>
+        <summary><span>${highlight(qa.q, terms)}</span></summary>
         <div class="ans">${highlight(qa.a, terms)}</div>
       </details>`).join('')}
     </div>
@@ -220,6 +223,7 @@ async function selectUniv(slug, opts) {
   }));
 
   if (opts && opts.focus) revealQuestion(box, opts.focus);
+  else if (opts && opts.scroll) scrollToEl(box, false);
 }
 
 /** 부드러운 스크롤이 막힌 환경에서도 반드시 이동하도록 보정한다 */
@@ -370,7 +374,10 @@ async function runQuestionSearch() {
   const groups = Array.from(byUniv.entries()).sort((a, b) => b[1].length - a[1].length);
 
   out.innerHTML = `
-    <div class="hint" style="margin:12px 0 8px"><b style="color:var(--ink)">${hits.length}개</b> 문항 · ${groups.length}개 대학에서 발견</div>
+    <div class="srow">
+      <div class="hint" style="margin:0"><b style="color:var(--ink)">${hits.length.toLocaleString()}개</b> 문항 · ${groups.length}개 대학에서 발견</div>
+      <button class="btn sub sm" id="qClear">검색 결과 닫기 ✕</button>
+    </div>
     ${groups.slice(0, 25).map(([slug, list]) => `
       <div style="border-top:1px solid var(--line-2);padding:10px 0">
         <button class="btn ghost" style="padding:2px 0;font-size:13.5px" data-goto="${slug}">${esc(nameBySlug[slug] || slug)} · ${list.length}개 →</button>
@@ -383,6 +390,14 @@ async function runQuestionSearch() {
         </ul>
       </div>`).join('')}
     ${groups.length > 25 ? `<div class="hint">…외 ${groups.length - 25}개 대학</div>` : ''}`;
+
+  const clearBtn = $('#qClear', out);
+  if (clearBtn) clearBtn.addEventListener('click', () => {
+    out.innerHTML = '';
+    $('#qSearch').value = '';
+    clearReturn();
+    $('#qSearch').focus();
+  });
 
   $$('.qjump', out).forEach((b) => b.addEventListener('click', (ev) => {
     ev.stopPropagation();
@@ -407,6 +422,7 @@ $('#univSelect').addEventListener('change', (e) => {
   const slug = e.target.value;
   if (!slug) return;
   clearReturn();
+  const jump = true;
   const u = state.index.universities.find((x) => x.slug === slug);
   // 선택한 대학이 목록에 보이도록 검색어를 비운다
   if (u && $('#univFilter').value.trim() && !u.name.includes($('#univFilter').value.trim())) {

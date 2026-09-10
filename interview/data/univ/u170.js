@@ -1,1 +1,0 @@
-window.IV=window.IV||{};IV.univ=IV.univ||{};IV.univ["u170"]={"univ":"국립한밭대학교","reviews":[],"official":[],"admission":[{"jeonhyeong":"학생부종합 – 지역인재, 소프트웨어인재, 특수교육대상자","select":"1단계 5배수 2단계 1단계 70% + 면접 30%","type":"서류기반 면접","method":"15분 / 면접 위원 2명","schedule":"2026. 11. 20.(금)","notes":"","areas":[]}]};
