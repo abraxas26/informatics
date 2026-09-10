@@ -7,6 +7,7 @@ const esc = (s) => String(s == null ? '' : s)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
   .replace(/"/g, '&quot;');
 
+const ASSET_VER = '20260910c';   // 배포마다 올려 브라우저 캐시를 갱신한다
 const OFFICIAL = '__official__';   // 학과 필터와 섞이지 않는 특수 키
 
 /** 업로드한 파일에 섞인 제어문자 제거 (탭·줄바꿈은 유지) */
@@ -38,7 +39,7 @@ function loadDataScript(src, pick) {
   if (pending.has(src)) return pending.get(src);
   const p = new Promise((resolve, reject) => {
     const s = document.createElement('script');
-    s.src = src;
+    s.src = src + (src.includes('?') ? '&' : '?') + 'v=' + ASSET_VER;
     s.onload = () => {
       const v = pick();
       if (v === undefined || v === null) reject(new Error(src + ' 안에 데이터가 없습니다.'));
