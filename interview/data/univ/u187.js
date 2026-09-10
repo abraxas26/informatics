@@ -1,0 +1,1 @@
+window.IV=window.IV||{};IV.univ=IV.univ||{};IV.univ["u187"]={"univ":"협성대학교","reviews":[],"official":[{"category":"시사상식","jeonhyeong":"","q":"청년 고용과 관련된 사회적 문제를 한 가지만 제시하고, 이를 해결하기 위한 방안을 말해 보세요.","src":"경기도 진학 연구팀(진심) 「2026 면접을 준비하다」"}],"admission":[]};

@@ -7,8 +7,9 @@ const esc = (s) => String(s == null ? '' : s)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
   .replace(/"/g, '&quot;');
 
-const ASSET_VER = '20260910c';   // 배포마다 올려 브라우저 캐시를 갱신한다
-const OFFICIAL = '__official__';   // 학과 필터와 섞이지 않는 특수 키
+const ASSET_VER = '20260910d';   // 배포마다 올려 브라우저 캐시를 갱신한다
+const OFFICIAL = '__official__';
+const ADMISSION = '__admission__';   // 학과 필터와 섞이지 않는 특수 키
 
 /** 업로드한 파일에 섞인 제어문자 제거 (탭·줄바꿈은 유지) */
 function stripCtrl(s) {
@@ -184,27 +185,32 @@ async function selectUniv(slug, opts) {
   catch (e) { box.innerHTML = `<div class="pad"><div class="err">${esc(e.message)}</div></div>`; return; }
 
   const depts = Array.from(new Set(d.reviews.map((r) => r.dept).filter(Boolean))).sort();
-  const officialMode = state.filterDept === OFFICIAL || (!d.reviews.length && d.official.length);
-  const shown = (state.filterDept && state.filterDept !== OFFICIAL)
+  const adm = d.admission || [];
+  const admMode = state.filterDept === ADMISSION;
+  const officialMode = !admMode
+    && (state.filterDept === OFFICIAL || (!d.reviews.length && d.official.length));
+  const shown = (state.filterDept && state.filterDept !== OFFICIAL && state.filterDept !== ADMISSION)
     ? d.reviews.filter((r) => r.dept === state.filterDept) : d.reviews;
 
   const chip = (val, label, on) =>
     `<button class="chip" data-dept="${esc(val)}" ${on ? 'aria-pressed="true"' : ''}>${label}</button>`;
   const chips = `<div class="chips" style="margin:12px 0 4px">
       ${d.reviews.length ? chip('', '전체 후기 ' + d.reviews.length, !officialMode && !state.filterDept) : ''}
+      ${adm.length ? chip(ADMISSION,
+        '<b>2027학년도 면접 전형</b> ' + adm.length, admMode) : ''}
       ${d.official.length ? chip(OFFICIAL,
         '<b>대학이 공개한 면접 예시 문항</b> ' + d.official.length, officialMode) : ''}
-      ${officialMode ? '' : depts.map((x) => chip(x, esc(x), state.filterDept === x)).join('')}
+      ${(officialMode || admMode) ? '' : depts.map((x) => chip(x, esc(x), state.filterDept === x)).join('')}
     </div>`;
 
   box.innerHTML = `
     <div class="pad" style="padding-bottom:0">
       <h2 style="margin:0;font-size:20px;letter-spacing:-.03em">${esc(d.univ)}</h2>
-      <p class="hint" style="margin-top:4px">면접 후기 ${d.reviews.length}건 · 실제 문항 ${d.reviews.reduce((a, r) => a + r.qa.length, 0)}개${d.official.length ? ' · 대학 공개 예시문항 ' + d.official.length + '개' : ''}</p>
+      <p class="hint" style="margin-top:4px">면접 후기 ${d.reviews.length}건 · 실제 문항 ${d.reviews.reduce((a, r) => a + r.qa.length, 0)}개${d.official.length ? ' · 대학 공개 예시문항 ' + d.official.length + '개' : ''}${adm.length ? ' · 2027 전형 ' + adm.length + '개' : ''}</p>
       ${chips}
     </div>
-    <div class="pad">${officialMode
-      ? officialPanel(d.official, terms)
+    <div class="pad">${admMode ? admissionPanel(adm)
+      : officialMode ? officialPanel(d.official, terms)
       : (shown.length ? shown.map((r) => reviewCard(r, terms, d.reviews.indexOf(r))).join('')
                       : '<div class="empty">수집된 후기가 없습니다.</div>')}</div>`;
 
@@ -236,6 +242,32 @@ function revealQuestion(box, focus) {
   target.scrollIntoView({ behavior: 'smooth', block: 'center' });
   target.classList.add('flash');
   setTimeout(() => target.classList.remove('flash'), 5100);
+}
+
+/* 2027학년도 면접 전형 — 선발 방법 · 면접 방식 · 일정 · 평가 영역 */
+function admissionPanel(list) {
+  const row = (k, v) => (v ? `<div class="kv"><b>${k}</b>${esc(v)}</div>` : '');
+  return `
+    <p class="hint" style="margin:0 0 14px">
+      <b style="color:var(--ink)">2027학년도 기준</b>입니다. 지금 고2가 치를 입시의 전형 방법·면접 방식·일정입니다.
+      실제 문항은 위의 <b>대학이 공개한 면접 예시 문항</b>에서 볼 수 있습니다.
+    </p>
+    ${list.map((a) => `
+      <article class="rcard">
+        <div class="rhead"><h4>${esc(a.jeonhyeong)}</h4>
+          <div class="meta">
+            ${a.type ? `<span class="badge">${esc(a.type)}</span>` : ''}
+            ${a.schedule ? `<span class="badge g">${esc(a.schedule.slice(0, 40))}</span>` : ''}
+          </div>
+        </div>
+        ${row('선발 방법', a.select)}
+        ${row('면접 방법', a.method)}
+        ${row('면접 일정', a.schedule)}
+        ${row('유의사항', a.notes)}
+        ${(a.areas || []).length ? `<div class="kv"><b>평가 영역</b>${
+          a.areas.map((x) => esc(x.area) + ' (' + x.questions.length + '문항)').join(' · ')}</div>` : ''}
+      </article>`).join('')}
+    <p class="hint">출처 · 세종특별자치시교육청 「2027학년도 대입 수시모집 면접 전형 자료집」</p>`;
 }
 
 /* 대학이 공개한 면접 예시 문항 — 평가영역/학과별로 묶어 보여준다 */
@@ -516,7 +548,7 @@ async function loadJesimun() {
 }
 
 function jesLabel(s) {
-  return [s.jeonhyeong, s.track, s.title].filter(Boolean).join(' · ');
+  return Array.from(new Set([s.jeonhyeong, s.track, s.title].filter(Boolean))).join(' · ');
 }
 
 async function initJesimun() {
@@ -534,7 +566,8 @@ async function initJesimun() {
   $('#jStats').innerHTML = [
     ['대학', new Set(sets.map((s) => s.univ)).size],
     ['문제 세트', sets.length],
-    ['원본 페이지', new Set(sets.flatMap((s) => s.blocks.flatMap((b) => b.pages))).size],
+    ['원본 페이지', new Set(sets.flatMap((s) => s.blocks.flatMap(
+      (b) => b.pages.map((p) => (s.img || 'p') + p)))).size],
   ].map(([k, v]) => `<div class="stat"><b>${v}</b><span>${k}</span></div>`).join('');
   $('#jModeChips').innerHTML =
     `<button class="chip" data-mode="" aria-pressed="true">전체</button>` +
@@ -582,7 +615,8 @@ function showJes(id) {
   const active = $('#jList .uitem[aria-current="true"]');
   if (active) active.scrollIntoView({ block: 'nearest' });
 
-  const src = (p) => `data/jesimun/p${String(p).padStart(3, '0')}.${jes.data.ext}`;
+  const pre = s.img || 'p';
+  const src = (p) => `data/jesimun/${pre}${String(p).padStart(3, '0')}.${jes.data.ext}`;
   const img = (p) => `<figure class="jpage">
       <a href="${src(p)}" target="_blank" rel="noopener" title="새 창에서 크게 보기">
         <img loading="lazy" src="${src(p)}" alt="원본 ${p}쪽"></a>
@@ -596,7 +630,7 @@ function showJes(id) {
         <span class="badge">${esc(s.mode)}</span>
         ${s.jeonhyeong ? `<span class="badge n">${esc(s.jeonhyeong)}</span>` : ''}
         ${s.track ? `<span class="badge n">${esc(s.track)}</span>` : ''}
-        <span>· ${esc(s.title)}</span>
+        ${s.title && s.title !== s.track ? `<span>· ${esc(s.title)}</span>` : ''}
       </div>
       <p class="notice" style="margin-top:12px">${esc(jes.data.note)}</p>
     </div>
@@ -617,7 +651,7 @@ function showJes(id) {
               </details>` : ''}
           </div>
         </details>`).join('')}
-      <p class="hint">출처 · ${esc(jes.data.source)}</p>
+      <p class="hint">출처 · ${esc(s.src || (jes.data.sources || []).join(' / '))}</p>
     </div>`;
   $('#jDetail').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }

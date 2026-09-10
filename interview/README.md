@@ -16,9 +16,9 @@
 
 | 메뉴 | 내용 |
 | --- | --- |
-| 1 · 대학·학과별 면접 후기 | 113개 대학 · 후기 965건 · 실제 문항 7,655개. 드롭다운 선택 + 이름 검색, 학과 필터, 전체 문항 키워드 검색 |
+| 1 · 대학·학과별 면접 후기 | 120개 대학 · 후기 965건 · 실제 문항 8,391개. **2027학년도 면접 전형**(선발 방법·면접 방식·일정·평가 영역) 70개 대학 141개 전형 포함. 드롭다운 선택 + 이름 검색, 학과 필터, 전체 문항 키워드 검색 |
 | 2 · 공통 면접 문항 | 8개 유형(자기소개·지원동기·활동 소개·학업역량·공동체역량·진로계획·마지막 말·압박질문). 출제 비율은 수집한 실제 기출을 분석해 산출. **학과로 찾기**(예: “컴퓨터” → 관련 학과 14개의 실제 문항을 유형별로), 랜덤 문항 + 타이머 연습 모드. 출제가 가장 몰리는 두 유형(고교 활동 소개 · 학업역량 세특)은 ★로 강조하고 ‘이것부터 검토하세요’ 안내를 붙였습니다 |
-| 3 · 제시문 기반 기출 | 14개 대학 85개 문제 세트. 문제 · 출제 의도 · 문항 해설 · 채점 기준 · 예시 답안 블록마다 **원본 PDF 쪽 이미지**(302쪽)를 그대로 보여줍니다(수식·도표 보존). 추출 텍스트는 각 블록의 ‘텍스트로 보기’에 접어 두었습니다 |
+| 3 · 제시문 기반 기출 | 14개 대학 101개 문제 세트(서울대 2026 인문·사회·수학A~E·물리·화학·생물·지구과학 포함). 문제 · 출제 의도 · 문항 해설 · 채점 기준 · 예시 답안 블록마다 **원본 PDF 쪽 이미지**(454쪽)를 그대로 보여줍니다(수식·도표 보존). 추출 텍스트는 각 블록의 ‘텍스트로 보기’에 접어 두었습니다 |
 | 4 · 생기부 분석 | 사용자가 본인 Gemini API 키를 등록하고 생기부를 입력하면 예상 문항·답변 포인트·꼬리질문을 생성. 기본 모델 `gemini-3.6-flash`. 결과 위에 **모의 면접 연습**(문항 넘기기 · 타이머 · 카메라/마이크 녹화 · 내려받기)이 붙습니다 |
 
 ## 만든 이
@@ -88,7 +88,8 @@ data/common.js           IV.common     공통 문항 8유형 + 실제 기출 예
 data/qindex.js           IV.qindex     전체 문항 검색 인덱스 [slug, reviewIdx, dept, question]  (검색 시 지연 로딩)
 data/univ/uNNN.js        IV.univ[slug] 대학별 후기 + 대학 공개 예시문항  (대학 선택 시 지연 로딩)
 data/jesimun.js          IV.jesimun    제시문 기반·MMI 문제 세트  (3번 탭 열 때 지연 로딩)
-data/jesimun/pNNN.webp                 원본 PDF 쪽 이미지 302장, 120dpi (약 17MB, 화면에 보일 때만 로딩)
+data/jesimun/pNNN.webp                 부산 자료집 원본 쪽 302장 (120dpi)
+data/jesimun/sNNN.webp                 세종 제시문 자료집 원본 쪽 152장 (90dpi, A4라 더 큼)
 ```
 
 ### 출처
@@ -101,6 +102,8 @@ data/jesimun/pNNN.webp                 원본 PDF 쪽 이미지 302장, 120dpi (
 | 인천광역시교육청 「2026 대입 구술면접자료집」 Ⅳ장 | 예시문항 421개 / 17개 대학 | 서류 기반·인성 면접 전량 |
 | 경기도 진학 연구팀(진심) 「2026 면접을 준비하다」 | 예시문항 620개 | 표 불릿 639개 중 짧은 항목 제외 |
 | 부산광역시교육청학력개발원 「2026 대입 수시모집 대비 면접자료집」 | 제시문 기반·MMI 85세트 / 원본 302쪽 | 제시문 기반 전량 + 의예과 MMI 10개 대학 |
+| 세종특별자치시교육청 「2027학년도 대입 수시모집 면접 전형 자료집」 | 70개 대학 141개 전형 / 예시문항 737개 | 전형 전량 |
+| 세종특별자치시교육청 「2026학년도 제시문 기반 면접 기출문제 분석 자료집」 | 16세트 / 원본 152쪽 | 서울대·연세대·고려대 전량 |
 
 ### 수록하지 않은 자료
 
@@ -128,8 +131,11 @@ py tools/build_qindex.py data
 py tools/emit_js.py      data          # data/*.json -> data/*.js (JSON 은 삭제됨)
 
 py tools/parse_jesimun.py  jesimun.json           # 제시문 기반·MMI
-py tools/render_jesimun.py jesimun.json data/jesimun   # 원본 쪽 이미지 (Pillow 있으면 webp)
-py tools/build_jesimun.py  jesimun.json data
+py tools/render_pages.py   jesimun.json data/jesimun "<부산 pdf>" p   # 원본 쪽 이미지
+py tools/parse_sejong2027.py     sejong2027.json    # 2027 전형 정보 (build_data 가 함께 읽음)
+py tools/parse_sejong_jesimun.py sejong_jesi.json   # 세종 제시문 기출
+py tools/render_pages.py   sejong_jesi.json data/jesimun "<세종 제시문 pdf>" s
+py tools/build_jesimun.py  data jesimun.json sejong_jesi.json
 ```
 
 `build_data.py` 는 중간 산출물(`ulsan.json` 등)을 스크립트 디렉터리의 부모에서 찾습니다.

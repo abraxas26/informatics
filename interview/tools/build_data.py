@@ -11,6 +11,7 @@ gn = json.load(open(os.path.join(SP, "gn.json"), encoding="utf-8"))
 jin = json.load(open(os.path.join(SP, "jinsim_q.json"), encoding="utf-8"))
 sej = json.load(open(os.path.join(SP, "sejong.json"), encoding="utf-8"))
 gus = json.load(open(os.path.join(SP, "gusul.json"), encoding="utf-8"))
+adm = json.load(open(os.path.join(SP, "sejong2027.json"), encoding="utf-8"))
 
 ALIAS = {
     "가톨릭관동대": "가톨릭관동대학교", "강서대(케이씨대)": "강서대학교", "케이씨대": "강서대학교",
@@ -99,12 +100,14 @@ learn_canon(r.get("univ_raw", "") for r in gn)
 learn_canon(it["univ"] for it in jin)
 learn_canon(r["univ"] for r in sej)
 learn_canon(x["univ"] for x in gus)
+learn_canon(x["univ"] for x in adm)
 CANON |= {"GIST", "KAIST", "UNIST", "DGIST", "포스텍", "KENTECH"}
 CANON -= BLOCK
 # 2차: 약칭에서 복원된 교명도 기준 목록에 반영한 뒤 다시 정규화한다
 _raw = ([r["univ"] for r in ulsan] + [r.get("univ", "") for r in gn]
         + [r.get("univ_raw", "") for r in gn] + [it["univ"] for it in jin]
-        + [r["univ"] for r in sej] + [x["univ"] for x in gus])
+        + [r["univ"] for r in sej] + [x["univ"] for x in gus]
+        + [x["univ"] for x in adm])
 learn_canon(canon(x) for x in _raw)
 CANON -= BLOCK
 
@@ -175,6 +178,24 @@ for x in gus:
         official[u].append({"category": it.get("group", ""), "jeonhyeong": "", "q": q,
                             "src": GUS_SRC})
 
+ADM_SRC = "세종특별자치시교육청 「2027학년도 대입 수시모집 면접 전형 자료집」"
+admission = defaultdict(list)
+for x in adm:
+    u = canon(x["univ"])
+    if not valid_univ(u):
+        continue
+    admission[u].append({
+        "jeonhyeong": x["jeonhyeong"], "select": x.get("select", ""),
+        "type": x.get("type", ""), "method": x.get("method", ""),
+        "schedule": x.get("schedule", ""), "notes": x.get("notes", ""),
+        "areas": x.get("areas", []),
+    })
+    for a in x.get("areas", []):
+        for q in a["questions"]:
+            if len(q) >= 12 and not NOT_Q.search(q):
+                official[u].append({"category": a["area"], "jeonhyeong": x["jeonhyeong"],
+                                    "q": q, "src": ADM_SRC})
+
 # 대학별 묶기
 by_univ = defaultdict(list)
 for r in records:
@@ -185,22 +206,27 @@ index = []
 for i, (u, recs) in enumerate(sorted(by_univ.items(), key=lambda x: x[0]), 1):
     slug = "u%03d" % i
     depts = sorted({r["dept"] for r in recs if r["dept"]})
-    payload = {"univ": u, "reviews": recs, "official": official.get(u, [])}
+    payload = {"univ": u, "reviews": recs, "official": official.get(u, []),
+               "admission": admission.get(u, [])}
     json.dump(payload, open(os.path.join(OUTDIR, "univ", slug + ".json"), "w", encoding="utf-8"),
               ensure_ascii=False, separators=(",", ":"))
     index.append({"name": u, "slug": slug, "reviews": len(recs),
                   "questions": sum(len(r["qa"]) for r in recs),
-                  "official": len(official.get(u, [])), "depts": depts})
+                  "official": len(official.get(u, [])),
+                  "admission": len(admission.get(u, [])), "depts": depts})
 # 후기는 없고 공식 예시문항만 있는 대학
-for i, (u, qs) in enumerate(sorted(official.items()), len(index) + 1):
+extra = sorted(set(official) | set(admission))
+for i, u in enumerate(extra, len(index) + 1):
     if u in by_univ:
         continue
     slug = "u%03d" % i
-    json.dump({"univ": u, "reviews": [], "official": qs},
+    json.dump({"univ": u, "reviews": [], "official": official.get(u, []),
+               "admission": admission.get(u, [])},
               open(os.path.join(OUTDIR, "univ", slug + ".json"), "w", encoding="utf-8"),
               ensure_ascii=False, separators=(",", ":"))
     index.append({"name": u, "slug": slug, "reviews": 0, "questions": 0,
-                  "official": len(qs), "depts": []})
+                  "official": len(official.get(u, [])),
+                  "admission": len(admission.get(u, [])), "depts": []})
 
 index.sort(key=lambda x: x["name"])
 json.dump({
@@ -211,8 +237,10 @@ json.dump({
         "세종특별자치시교육청 「보인다! 5.0 면접지도 길라잡이」",
         "인천광역시교육청 「2026학년도 대입 구술면접자료집」",
         "경기도 진학 연구팀(진심) 「2026 면접을 준비하다」",
+        "세종특별자치시교육청 「2027학년도 대입 수시모집 면접 전형 자료집」",
     ],
     "totals": {"universities": len(index),
+               "admission": sum(x.get("admission", 0) for x in index),
                "reviews": sum(x["reviews"] for x in index),
                "questions": sum(x["questions"] for x in index),
                "official": sum(x["official"] for x in index)},
