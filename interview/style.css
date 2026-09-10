@@ -400,3 +400,25 @@ footer.site{
 #rhDownload{text-decoration:none;display:inline-block;line-height:1.4}
 #rhState{margin-top:10px}
 #rhState .masked,#rhState .notice,#rhState .err{font-size:12.5px}
+
+/* ── 검색 결과에서 문항 바로 열기 ────── */
+.qhits{margin:8px 0 0;padding:0;list-style:none}
+.qhits li{margin-bottom:4px}
+.qjump{
+  display:block;width:100%;text-align:left;cursor:pointer;
+  background:transparent;border:2px solid transparent;border-radius:12px;
+  padding:7px 10px;color:var(--ink-2);font-size:13.2px;line-height:1.6;
+  transition:background .15s,border-color .15s,transform .15s;
+}
+.qjump:hover{background:var(--panel-2);border-color:var(--accent);transform:translateX(2px)}
+.qjump small{
+  display:block;color:var(--ink-3);font-size:11.5px;font-weight:700;margin-top:2px;
+}
+.qjump:hover small{color:var(--accent)}
+
+/* 이동한 문항 잠깐 강조 */
+@keyframes flashMark{
+  0%,100%{background:transparent;box-shadow:none}
+  7%,86%{background:var(--warn-soft);box-shadow:0 0 0 6px var(--warn-soft)}
+}
+.flash{animation:flashMark 5s ease-in-out;border-radius:10px}

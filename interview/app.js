@@ -135,7 +135,7 @@ function renderUnivList(filter) {
     b.addEventListener('click', () => selectUniv(b.dataset.slug)));
 }
 
-function reviewCard(r, terms) {
+function reviewCard(r, terms, ri) {
   const badges = [];
   if (r.result) badges.push(`<span class="badge ${r.result === '불합격' ? 'r' : 'g'}">${esc(r.result)}</span>`);
   if (r.naesin) badges.push(`<span class="badge n">내신 ${esc(r.naesin)}</span>`);
@@ -147,7 +147,7 @@ function reviewCard(r, terms) {
   if (r.type)   kv.push(`<div class="kv"><b>전형 방법</b>${esc(r.type)}</div>`);
   if (r.notes)  kv.push(`<div class="kv"><b>유의사항 · 분위기</b>${esc(r.notes)}</div>`);
 
-  return `<article class="rcard">
+  return `<article class="rcard" data-ri="${ri}">
     <div class="rhead">
       <h4>${esc(r.dept || '학과 미기재')}</h4>
       <div class="meta">
@@ -204,12 +204,37 @@ async function selectUniv(slug, opts) {
     </div>
     <div class="pad">${officialMode
       ? officialPanel(d.official, terms)
-      : (shown.length ? shown.map((r) => reviewCard(r, terms)).join('')
+      : (shown.length ? shown.map((r) => reviewCard(r, terms, d.reviews.indexOf(r))).join('')
                       : '<div class="empty">수집된 후기가 없습니다.</div>')}</div>`;
 
   $$('.chip[data-dept]', box).forEach((c) => c.addEventListener('click', () => {
     selectUniv(slug, { dept: c.dataset.dept || null, terms });
   }));
+
+  if (opts && opts.focus) revealQuestion(box, opts.focus);
+}
+
+/** 검색 결과에서 고른 문항을 펼쳐서 화면 가운데로 가져오고 잠깐 강조한다 */
+function revealQuestion(box, focus) {
+  const key = (t) => String(t).replace(/\s+/g, '');
+  const want = key(focus.q).slice(0, 24);
+  let target = null;
+
+  if (focus.ri >= 0) {
+    const card = box.querySelector('.rcard[data-ri="' + focus.ri + '"]');
+    if (card) {
+      target = Array.from(card.querySelectorAll('details'))
+        .find((d) => key(d.querySelector('summary').textContent).includes(want)) || card;
+      if (target.tagName === 'DETAILS') target.open = true;
+    }
+  } else {
+    target = Array.from(box.querySelectorAll('.ccard ol li'))
+      .find((li) => key(li.textContent).includes(want));
+  }
+  if (!target) return;
+  target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  target.classList.add('flash');
+  setTimeout(() => target.classList.remove('flash'), 5100);
 }
 
 /* 대학이 공개한 면접 예시 문항 — 평가영역/학과별로 묶어 보여준다 */
@@ -269,13 +294,27 @@ async function runQuestionSearch() {
     ${groups.slice(0, 25).map(([slug, list]) => `
       <div style="border-top:1px solid var(--line-2);padding:10px 0">
         <button class="btn ghost" style="padding:2px 0;font-size:13.5px" data-goto="${slug}">${esc(nameBySlug[slug] || slug)} · ${list.length}개 →</button>
-        <ul style="margin:6px 0 0;padding-left:18px;font-size:13.2px;color:var(--ink-2)">
-          ${list.slice(0, 4).map(([, , dept, q]) => `<li style="margin-bottom:4px">${highlight(q, terms)}${dept ? `<small style="color:var(--ink-3);display:block;font-size:11.5px">${esc(dept)}</small>` : ''}</li>`).join('')}
+        <ul class="qhits">
+          ${list.slice(0, 4).map(([, ri, dept, q]) => `<li>
+            <button class="qjump" data-goto="${slug}" data-ri="${ri}" data-q="${esc(q)}">
+              <span>${highlight(q, terms)}</span>
+              <small>${dept ? esc(dept) : '대학 공개 예시문항'} · 이 문항 보기 →</small>
+            </button></li>`).join('')}
         </ul>
       </div>`).join('')}
     ${groups.length > 25 ? `<div class="hint">…외 ${groups.length - 25}개 대학</div>` : ''}`;
 
-  $$('[data-goto]', out).forEach((b) => b.addEventListener('click', () => {
+  $$('.qjump', out).forEach((b) => b.addEventListener('click', (ev) => {
+    ev.stopPropagation();
+    const ri = Number(b.dataset.ri);
+    selectUniv(b.dataset.goto, {
+      terms,
+      dept: ri < 0 ? OFFICIAL : null,
+      focus: { ri, q: b.dataset.q },
+    });
+  }));
+
+  $$('button[data-goto]:not(.qjump)', out).forEach((b) => b.addEventListener('click', () => {
     selectUniv(b.dataset.goto, { terms });
     $('#univDetail').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }));
