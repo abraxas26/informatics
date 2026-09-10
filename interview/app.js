@@ -7,7 +7,7 @@ const esc = (s) => String(s == null ? '' : s)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
   .replace(/"/g, '&quot;');
 
-const ASSET_VER = '20260910d';   // 배포마다 올려 브라우저 캐시를 갱신한다
+const ASSET_VER = '20260911b';   // 배포마다 올려 브라우저 캐시를 갱신한다
 const OFFICIAL = '__official__';
 const ADMISSION = '__admission__';   // 학과 필터와 섞이지 않는 특수 키
 
@@ -80,6 +80,7 @@ function showView(name) {
   $$('.tab').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.view === name)));
   ['reviews', 'common', 'jesimun', 'analyze'].forEach((v) => { $('#view-' + v).hidden = (v !== name); });
   if (name === 'jesimun') initJesimun();
+  if (name !== 'reviews') clearReturn();
   if (location.hash.slice(1) !== name) history.replaceState(null, '', '#' + name);
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -134,7 +135,7 @@ function renderUnivList(filter) {
       <small>후기 ${u.reviews} · 문항 ${u.questions + u.official}</small>
     </button>`).join('');
   $$('.uitem', box).forEach((b) =>
-    b.addEventListener('click', () => selectUniv(b.dataset.slug)));
+    b.addEventListener('click', () => { clearReturn(); selectUniv(b.dataset.slug); }));
 }
 
 function reviewCard(r, terms, ri) {
@@ -221,6 +222,52 @@ async function selectUniv(slug, opts) {
   if (opts && opts.focus) revealQuestion(box, opts.focus);
 }
 
+/** 부드러운 스크롤이 막힌 환경에서도 반드시 이동하도록 보정한다 */
+function scrollToY(y) {
+  const start = window.scrollY;
+  const top = Math.max(0, Math.round(y));
+  window.scrollTo({ top, behavior: 'smooth' });
+  setTimeout(() => {
+    if (Math.abs(window.scrollY - start) < 4 && Math.abs(top - start) > 8) {
+      window.scrollTo(0, top);
+    }
+  }, 420);
+}
+function scrollToEl(el, center) {
+  const r = el.getBoundingClientRect();
+  const y = r.top + window.scrollY - (center
+    ? Math.max(20, (window.innerHeight - r.height) / 2)
+    : 90);
+  scrollToY(y);
+}
+
+/* ── 검색 결과로 돌아가기 ──────────────────────
+   문항으로 뛰기 전 스크롤 위치를 기억해 두었다가 되돌려 준다. */
+const backBtn = $('#backToSearch');
+
+function markReturn(y, fromEl) {
+  state.returnY = y;
+  state.returnEl = fromEl || null;
+  backBtn.hidden = false;
+}
+function clearReturn() {
+  state.returnY = null;
+  state.returnEl = null;
+  backBtn.hidden = true;
+}
+backBtn.addEventListener('click', () => {
+  const el = state.returnEl;
+  const y = state.returnY;
+  clearReturn();
+  if (el && document.body.contains(el)) {
+    scrollToEl(el, true);
+    el.classList.add('flash');
+    setTimeout(() => el.classList.remove('flash'), 5100);
+  } else if (y != null) {
+    scrollToY(y);
+  }
+});
+
 /** 검색 결과에서 고른 문항을 펼쳐서 화면 가운데로 가져오고 잠깐 강조한다 */
 function revealQuestion(box, focus) {
   const key = (t) => String(t).replace(/\s+/g, '');
@@ -239,7 +286,7 @@ function revealQuestion(box, focus) {
       .find((li) => key(li.textContent).includes(want));
   }
   if (!target) return;
-  target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  scrollToEl(target, true);
   target.classList.add('flash');
   setTimeout(() => target.classList.remove('flash'), 5100);
 }
@@ -339,6 +386,7 @@ async function runQuestionSearch() {
 
   $$('.qjump', out).forEach((b) => b.addEventListener('click', (ev) => {
     ev.stopPropagation();
+    markReturn(window.scrollY, b);
     const ri = Number(b.dataset.ri);
     selectUniv(b.dataset.goto, {
       terms,
@@ -349,7 +397,7 @@ async function runQuestionSearch() {
 
   $$('button[data-goto]:not(.qjump)', out).forEach((b) => b.addEventListener('click', () => {
     selectUniv(b.dataset.goto, { terms });
-    $('#univDetail').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    scrollToEl($('#univDetail'), false);
   }));
 }
 $('#qSearchBtn').addEventListener('click', runQuestionSearch);
@@ -358,6 +406,7 @@ $('#univFilter').addEventListener('input', (e) => renderUnivList(e.target.value)
 $('#univSelect').addEventListener('change', (e) => {
   const slug = e.target.value;
   if (!slug) return;
+  clearReturn();
   const u = state.index.universities.find((x) => x.slug === slug);
   // 선택한 대학이 목록에 보이도록 검색어를 비운다
   if (u && $('#univFilter').value.trim() && !u.name.includes($('#univFilter').value.trim())) {

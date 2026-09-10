@@ -12,6 +12,11 @@ jin = json.load(open(os.path.join(SP, "jinsim_q.json"), encoding="utf-8"))
 sej = json.load(open(os.path.join(SP, "sejong.json"), encoding="utf-8"))
 gus = json.load(open(os.path.join(SP, "gusul.json"), encoding="utf-8"))
 adm = json.load(open(os.path.join(SP, "sejong2027.json"), encoding="utf-8"))
+sej20 = json.load(open(os.path.join(SP, "sejong2020.json"), encoding="utf-8"))
+CB_FILES = ["cb_case1.json", "cb_case2.json", "cb_h2025.json",
+            "cb_h2024.json", "cb_2022.json"]
+cb = [r for f in CB_FILES
+      for r in json.load(open(os.path.join(SP, f), encoding="utf-8"))]
 
 ALIAS = {
     "가톨릭관동대": "가톨릭관동대학교", "강서대(케이씨대)": "강서대학교", "케이씨대": "강서대학교",
@@ -101,13 +106,16 @@ learn_canon(it["univ"] for it in jin)
 learn_canon(r["univ"] for r in sej)
 learn_canon(x["univ"] for x in gus)
 learn_canon(x["univ"] for x in adm)
+learn_canon(r["univ"] for r in cb)
+learn_canon(r["univ"] for r in sej20)
 CANON |= {"GIST", "KAIST", "UNIST", "DGIST", "포스텍", "KENTECH"}
 CANON -= BLOCK
 # 2차: 약칭에서 복원된 교명도 기준 목록에 반영한 뒤 다시 정규화한다
 _raw = ([r["univ"] for r in ulsan] + [r.get("univ", "") for r in gn]
         + [r.get("univ_raw", "") for r in gn] + [it["univ"] for it in jin]
         + [r["univ"] for r in sej] + [x["univ"] for x in gus]
-        + [x["univ"] for x in adm])
+        + [x["univ"] for x in adm] + [r["univ"] for r in cb]
+        + [r["univ"] for r in sej20])
 learn_canon(canon(x) for x in _raw)
 CANON -= BLOCK
 
@@ -152,6 +160,47 @@ for r in sej:
         "jeonhyeong": clean_jh(r.get("type", ""), r.get("jeonhyeong", "")),
         "method": method, "notes": r.get("notes", ""), "qa": r["qa"],
         "src": SEJ_SRC, "year": "2024학년도",
+    })
+
+def norm_result(t):
+    t = (t or "").strip()
+    if not t or t in ("?", "-"):
+        return ""
+    if "불합" in t:
+        return "불합격"
+    if "추합" in t or "충원" in t or "예비" in t:
+        return "추가합격"
+    if "합" in t:
+        return "합격"
+    return ""
+
+
+for r in cb:
+    u = canon(r["univ"])
+    if not valid_univ(u) or not r["qa"]:
+        continue
+    records.append({
+        "univ": u, "dept": norm_dept(r["dept"]),
+        "jeonhyeong": clean_jh(r.get("type", ""), r.get("jeonhyeong", "")),
+        "method": r.get("method", ""), "notes": r.get("notes", ""), "qa": r["qa"],
+        "result": norm_result(r.get("result", "")),
+        "resultNote": (r.get("resultNote", "") or "").strip(" -"),
+        "src": r["src"], "year": r["year"],
+    })
+
+SEJ20_SRC = "세종특별자치시교육청 「2020 보인다! 면접지도 길라잡이」"
+for r in sej20:
+    u = canon(r["univ"])
+    if not valid_univ(u) or not r["qa"]:
+        continue
+    method = " / ".join(x for x in [r.get("process", ""),
+                                    ("면접시간 " + r["time"]) if r.get("time") else "",
+                                    ("면접위원 " + r["panel"]) if r.get("panel") else ""] if x)
+    records.append({
+        "univ": u, "dept": norm_dept(r["dept"]),
+        "jeonhyeong": clean_jh(r.get("type", ""), r.get("jeonhyeong", "")),
+        "method": method, "notes": r.get("notes", ""), "qa": r["qa"],
+        "src": SEJ20_SRC, "year": "2020학년도",
     })
 
 official = defaultdict(list)
@@ -238,6 +287,11 @@ json.dump({
         "인천광역시교육청 「2026학년도 대입 구술면접자료집」",
         "경기도 진학 연구팀(진심) 「2026 면접을 준비하다」",
         "세종특별자치시교육청 「2027학년도 대입 수시모집 면접 전형 자료집」",
+        "세종특별자치시교육청 「2020 보인다! 면접지도 길라잡이」",
+        "충청북도교육청 「2025 수시 면접 사례집(1·2권)」",
+        "충청북도교육청 「2025 대입 면접 후기집」",
+        "충청북도교육청 「2024 수시 대비 면접 후기집」",
+        "충청북도교육청 「2022 대입 면접 후기집」",
     ],
     "totals": {"universities": len(index),
                "admission": sum(x.get("admission", 0) for x in index),

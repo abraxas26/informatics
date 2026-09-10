@@ -2,8 +2,9 @@
 """세종특별자치시교육청 「보인다! 5.0 면접지도 길라잡이」 2024학년도 대입 면접 후기 -> JSON"""
 import fitz, json, re, sys
 
-SRC = r"C:\Users\황윤정\Downloads\2024 보인다 5.0 면접지도 길라잡이(세종시 교육청).pdf"
 OUT = sys.argv[1]
+# 같은 편집 형식의 다른 연도 자료집에도 쓸 수 있게 원본 경로를 인자로 받는다
+SRC = sys.argv[2] if len(sys.argv) > 2 else r"C:\Users\황윤정\Downloads\2024 보인다 5.0 면접지도 길라잡이(세종시 교육청).pdf"
 
 CTRL = re.compile(r"[\x00-\x08\x0b-\x1f\x7f]")
 QMARK = re.compile(r"^Q\s*\d*\s*[.:)]\s*")
