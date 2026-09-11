@@ -6,6 +6,9 @@ from collections import Counter
 DATA = sys.argv[1]
 OUT = os.path.join(DATA, "common.json")
 
+# 대학·학과 이름은 index.json 에서 가져와 보편 문항 필터에 쓴다
+index = json.load(open(os.path.join(DATA, "index.json"), encoding="utf-8"))
+
 qs = []   # (univ, dept, question)
 for f in glob.glob(os.path.join(DATA, "univ", "*.json")):
     d = json.load(open(f, encoding="utf-8"))
@@ -134,8 +137,114 @@ for c in CATS:
                 "share": round(len(hits) / max(1, len(qs)) * 100, 1),
                 "examples": sorted(ex, key=lambda x: (x["univ"], x["dept"]))})
 
-json.dump({"totalQuestions": len(qs), "categories": out},
+# ── 연습용 보편 문항 풀 ──────────────────────────────
+# 랜덤 문항은 어느 학과에 지원하든 그대로 써먹을 수 있어야 한다.
+# 특정 대학·학과·교과·활동이 박힌 질문은 걸러낸다.
+UNIV_NAMES = sorted({u["name"] for u in index["universities"]}, key=len, reverse=True)
+UNIV_SHORT = {n.replace("대학교", "대") for n in UNIV_NAMES} | set(UNIV_NAMES)
+DEPT_NAMES = {d for u in index["universities"] for d in u["depts"] if len(d) >= 3}
+
+SUBJECTS = re.compile(
+    r"미적분|기하|확률과\s*통계|물리학?\s*[ⅠⅡI12]?|화학\s*[ⅠⅡI12]?|생명과학|지구과학|"
+    r"세계사|동아시아사|한국사|한국지리|세계지리|정치와\s*법|사회문화|사회·문화|생활과\s*윤리|"
+    r"윤리와\s*사상|경제수학|인공지능\s*수학|언어와\s*매체|화법과\s*작문|독서와\s*문법|"
+    r"고전\s*읽기|영어독해|수학\s*[ⅠⅡI12]|세특|과세특|생기부|학생부에")
+
+# 지원자의 생기부 내용을 가리키는 질문은 남의 기록이라 연습에 쓸 수 없다
+RECORD_REF = re.compile(
+    r"했다고|하셨는데|하였는데|되어\s*있는데|적혀|쓰여|나와\s*있|기재|"
+    r"보니까|보니\s|라고\s*하는데|한\s*것으로|진행했는데|참여했는데|읽었는데|"
+    r"해왔는데|하였다고|해봤다고|했는데|○○|◯◯|OO시간")
+
+# 후기 본문에 섞여 들어온 조언·설명문은 문항이 아니다
+NOT_QUESTION = re.compile(r"것이\s*좋다|해야\s*한다|권장|추천한다|준비하는\s*것이|"
+                          r"추세이|가능성이\s*높다|바랍니다")
+# 질문처럼 끝나야 한다
+QUESTION_END = re.compile(r"([?？]|요[.?]?|오[.?]?|까[?]?|죠[?]?|나[?]?|가[?]?|"
+                          r"세요[.]?|보세요[.]?|주세요[.]?|시오[.]?|말해|이야기해|"
+                          r"무엇|어떤|왜|사례|경험|계획|이유|장단점|한\s*말)\s*$")
+SPECIFIC = re.compile(
+    r"[‘’“”「」『』《》]|"                            # 책·작품·활동 제목 인용
+    r"\d\s*학년|\d\s*번|문제\s*\d|"                 # 특정 학년·문항 번호
+    r"보고서|실험|논문|학술|칼럼|소논문|캠프|대회|공모전|"
+    r"제시문|다음\s*글|자료를\s*보고|논하시오|설명하시오|근거를\s*들어")
+# '○○학과/학부/전공/계열' 처럼 이름이 붙은 모집단위 (우리 학과·본 전공 등은 허용)
+NAMED_UNIT = re.compile(r"(?<!우리\s)(?<!본\s)(?<!해당\s)(?<!지원\s)[가-힣]{2,10}(학과|학부|전공|계열)")
+CHATTER = re.compile(r"^(네[,.]|아[,.]|자[,.]|그럼|그러면|우선|먼저요)")
+# 어느 학과에 지원하든 그대로 나올 수 있는 문항 틀만 통과시킨다
+UNIVERSAL = [
+    r"자기\s*소개",
+    r"지원\s*(동기|이유|하게\s*된)",
+    r"(왜|어째서).{0,12}(우리|본교|이)\s*(학과|학부|대학|전공)",
+    r"마지막으로.{0,12}(말|하고\s*싶)",
+    r"(장점|단점|강점|약점).{0,20}(무엇|뭐|말|이야기|설명|사례)",
+    r"본인의?\s*성격",
+    r"갈등.{0,20}(해결|극복|경험|사례)",
+    r"(협력|협업|팀워크|리더십|리더쉽).{0,20}(경험|사례|발휘|말|이야기)",
+    r"(존경|롤모델|본받).{0,16}(인물|사람|누구)",
+    r"(진로|장래).{0,12}(계획|희망|목표)",
+    r"졸업\s*(후|하고).{0,16}(계획|무엇|진로|하고\s*싶)",
+    r"입학\s*(후|하면).{0,16}(계획|하고\s*싶|무엇)",
+    r"(고교|고등학교)\s*(생활|시절).{0,20}(기억|의미|활동|배운|얻은)",
+    r"가장\s*(기억|의미|인상).{0,16}(활동|경험|일|수업|독서|책|봉사)",
+    r"봉사\s*활동.{0,16}(경험|무엇|기억|소개|말)",
+    r"(감명|인상)\s*깊게\s*읽은|읽은\s*책.{0,12}(무엇|소개|말)",
+    r"성적.{0,24}(향상|올랐|떨어|하락|낮|노력|이유)",
+    r"(스트레스|힘들었).{0,16}(해소|극복|어떻게)",
+    r"(실패|좌절).{0,16}(경험|극복|어떻게)",
+    r"(왜|어떤\s*점).{0,10}(뽑아야|선발해야|합격)",
+    r"어떤\s*(학생|사람)(으로|이).{0,16}(기억|성장|되고)",
+    r"본인을?\s*(뽑아야|선발해야)",
+    r"학업\s*계획",
+]
+UNIVERSAL_RX = re.compile("|".join(UNIVERSAL))
+# 특정 직업·분야가 박힌 질문 제외
+JOB_SPECIFIC = re.compile(r"교사|교수|의사|간호사|변호사|공무원|연구원|약사|기자|"
+                          r"디자이너|엔지니어|상담사|사회복지사|경찰|군인|회계사|수의사")
+ALLOWED_UNIT = re.compile(r"(우리|본교|본|해당|지원(한|하는)?|이)\s*(학과|학부|전공|계열)")
+NOISE = re.compile(r"[(（:：]|면접관|입사관|교수님|아까|방금")
+
+def is_generic(q):
+    q = q.strip()
+    if not (10 <= len(q) <= 60):
+        return False
+    if SUBJECTS.search(q) or SPECIFIC.search(q) or RECORD_REF.search(q):
+        return False
+    if NOT_QUESTION.search(q) or not QUESTION_END.search(q):
+        return False
+    if NOISE.search(q) or JOB_SPECIFIC.search(q):
+        return False
+    if CHATTER.match(q):
+        return False
+    if any(n in q for n in UNIV_SHORT):
+        return False
+    if any(d in q for d in DEPT_NAMES):
+        return False
+    # 이름이 붙은 모집단위가 있으면 제외 (단 '우리 학과' 같은 일반 표현은 허용)
+    for m in NAMED_UNIT.finditer(q):
+        if not ALLOWED_UNIT.search(q[max(0, m.start() - 4):m.end()]):
+            return False
+    return bool(UNIVERSAL_RX.search(q))
+
+
+practice, pseen = [], set()
+for c in out:
+    rx = re.compile(c["pat"])
+    cand = [q for q in qs if rx.search(q[2]) and is_generic(q[2])]
+    random.shuffle(cand)
+    picked = 0
+    for u, dept, q, a in cand:
+        key = re.sub(r"[\s?!.,~]+", "", q)
+        if key in pseen:
+            continue
+        pseen.add(key)
+        practice.append({"cat": c["title"], "q": q, "univ": u})
+        picked += 1
+        if picked >= 40:
+            break
+
+json.dump({"totalQuestions": len(qs), "categories": out, "practice": practice},
           open(OUT, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
-print("total questions:", len(qs))
+print("total questions:", len(qs), "| 연습용 보편 문항:", len(practice))
 for c in out:
     print("%-22s %5d (%4.1f%%)  예시 %d" % (c["title"], c["count"], c["share"], len(c["examples"])))

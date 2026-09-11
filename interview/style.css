@@ -459,3 +459,20 @@ footer.site{
   padding:2px 7px;border-radius:999px;white-space:nowrap;
 }
 .uitem[aria-current="true"] small{visibility:hidden}
+
+/* ── 공통 문항 연습 카메라 ────────────── */
+.prac-cam{
+  max-width:420px;margin:18px auto 0;padding:16px;
+  background:var(--panel-2);border:2.5px solid var(--line);border-radius:20px;text-align:left;
+}
+.prac-cam video{
+  width:100%;border-radius:var(--radius-sm);background:#0F172A;display:block;margin-bottom:10px;
+  border:2.5px solid var(--line);
+}
+.prac-cam #pcPlay{margin-top:10px;margin-bottom:0}
+.prac-cam .hint{text-align:center}
+#pcRecBtn.rec{background:var(--bad);box-shadow:0 5px 0 var(--bad-deep);animation:pulse 1.4s infinite}
+#pcRecBtn.rec:hover{box-shadow:0 7px 0 var(--bad-deep)}
+#pcDownload{text-decoration:none;display:inline-block;line-height:1.4}
+#pcState{margin-top:10px}
+#pcState .masked,#pcState .notice,#pcState .err{font-size:12.5px}

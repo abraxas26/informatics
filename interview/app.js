@@ -7,7 +7,7 @@ const esc = (s) => String(s == null ? '' : s)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
   .replace(/"/g, '&quot;');
 
-const ASSET_VER = '20260911f';   // 배포마다 올려 브라우저 캐시를 갱신한다
+const ASSET_VER = '20260911g';   // 배포마다 올려 브라우저 캐시를 갱신한다
 const OFFICIAL = '__official__';
 const ADMISSION = '__admission__';   // 학과 필터와 섞이지 않는 특수 키
 
@@ -603,10 +603,35 @@ $('#pracToggle').addEventListener('click', () => {
     el.classList.toggle('over', prac.sec > 90);
   }, 1000);
 });
+/* 공통 문항 연습에서도 카메라로 표정·말투를 확인할 수 있게 한다 */
+$('#pracCamToggle').addEventListener('click', () => {
+  const box = $('#pracCamBox');
+  if (box.hidden) {
+    if (!box.dataset.ready) {
+      box.innerHTML = `<p class="hint" style="margin:0 0 10px">
+          카메라를 켜고 답해 보면 시선 · 표정 · 말버릇까지 확인할 수 있습니다.
+          <b>영상과 음성은 이 브라우저 안에만 있고 어디로도 전송되지 않습니다.</b></p>`
+        + cameraBlock('pc');
+      box.dataset.ready = '1';
+      bindCamera('pc');
+    }
+    box.hidden = false;
+    $('#pracCamToggle').textContent = '📹 카메라 접기';
+  } else {
+    cam.p = 'pc'; rhClose();
+    box.hidden = true;
+    $('#pracCamToggle').textContent = '📹 내 모습 보며 연습';
+  }
+});
+
 $('#pracNext').addEventListener('click', () => {
   if (!prac.pool.length) {
-    state.common.categories.forEach((c) =>
-      c.examples.forEach((e) => prac.pool.push({ cat: c.title, q: e.q, univ: e.univ })));
+    // 어느 학과에 지원하든 쓸 수 있는 문항만 (build_common.py 의 practice)
+    prac.pool = (state.common.practice || []).slice();
+    if (!prac.pool.length) {
+      state.common.categories.forEach((c) =>
+        c.examples.forEach((e) => prac.pool.push({ cat: c.title, q: e.q, univ: e.univ })));
+    }
   }
   const p = prac.pool[Math.floor(Math.random() * prac.pool.length)];
   $('#pracCat').textContent = p.cat;
@@ -1069,12 +1094,23 @@ function rhStopTimer() {
   clearInterval(rh.timer); rh.timer = null; rh.running = false;
   const b = $('#rhTimerBtn'); if (b) b.textContent = '타이머 시작';
 }
+
+/* 녹화를 시작·정지하면 그 화면의 타이머도 함께 움직인다 */
+function camTimerStart() {
+  if (cam.p === 'pc') { pracReset(); $('#pracToggle').click(); return; }
+  if ($('#rhTimer')) { rhResetTimer(); rhStartTimer(); }
+}
+function camTimerStop() {
+  if (cam.p === 'pc') { pracStop(); return; }
+  if ($('#rhTimer')) rhStopTimer();
+}
 function rhResetTimer() {
   rhStopTimer(); rh.sec = 0;
   const t = $('#rhTimer'); if (t) { t.textContent = '00:00'; t.classList.remove('over'); }
 }
 function rhStartTimer() {
   if (rh.running) { rhStopTimer(); return; }
+  if (!$('#rhTimer')) return;
   rh.running = true; $('#rhTimerBtn').textContent = '일시정지';
   rh.timer = setInterval(() => {
     rh.sec += 1;
@@ -1098,32 +1134,74 @@ function rhShow(i) {
   rhResetTimer();
 }
 
+/* 카메라·마이크는 한 번에 하나만 쓰므로 상태는 공유하고, 화면 요소만 접두어로 구분한다 */
+const cam = { p: 'rh' };
+const camEl = (name) => $('#' + cam.p + name);
+
+/** 두 탭(공통 문항 연습 · 생기부 분석)이 함께 쓰는 카메라 블록 */
+function cameraBlock(p) {
+  return `
+    <video id="${p}Live" autoplay muted playsinline hidden></video>
+    <div class="row" style="justify-content:center">
+      <button class="btn sub" id="${p}Cam">📹 카메라 + 마이크</button>
+      <button class="btn sub" id="${p}Mic">🎙 마이크만</button>
+      <button class="btn sub" id="${p}Off">끄기</button>
+    </div>
+    <div class="row" style="justify-content:center;margin-top:8px">
+      <button class="btn" id="${p}RecBtn" disabled>● 녹화 시작</button>
+      <a class="btn sub" id="${p}Download" hidden download>⬇ 내려받기</a>
+    </div>
+    <div id="${p}State"></div>
+    <video id="${p}Play" controls hidden></video>`;
+}
+
+function bindCamera(p) {
+  if (!canRecord()) {
+    $('#' + p + 'State').innerHTML = `<div class="notice">이 환경에서는 녹화를 쓸 수 없습니다.
+      카메라·마이크는 보안 연결에서만 열립니다 — <b>index.html 을 파일로 여는 대신</b>
+      <code>py -m http.server 8765</code> 로 실행하거나 https 주소로 접속하면 사용할 수 있습니다.
+      문항 연습과 타이머는 그대로 쓸 수 있습니다.</div>`;
+    ['Cam', 'Mic', 'Off'].forEach((k) => { $('#' + p + k).disabled = true; });
+    return;
+  }
+  $('#' + p + 'Cam').addEventListener('click', () => { cam.p = p; rhOpen(true); });
+  $('#' + p + 'Mic').addEventListener('click', () => { cam.p = p; rhOpen(false); });
+  $('#' + p + 'Off').addEventListener('click', () => {
+    cam.p = p; rhClose(); $('#' + p + 'State').innerHTML = '';
+  });
+  $('#' + p + 'RecBtn').addEventListener('click', () => { cam.p = p; rhToggleRecord(); });
+}
+
 async function rhOpen(video) {
   rhClose();
   try {
     rh.stream = await navigator.mediaDevices.getUserMedia(
       video ? { video: { width: 640, height: 480 }, audio: true } : { audio: true });
   } catch (e) {
-    $('#rhState').innerHTML = `<div class="err">장치를 열지 못했습니다. ${esc(e.message)}</div>`;
+    camEl('State').innerHTML = `<div class="err">장치를 열지 못했습니다. ${esc(e.message)}</div>`;
     return;
   }
-  const live = $('#rhLive');
+  const live = camEl('Live');
   live.hidden = !video;
   if (video) { live.srcObject = rh.stream; live.play().catch(() => {}); }
-  $('#rhState').innerHTML = `<div class="masked ok"><b>${video ? '📹 카메라 · 마이크 준비됨' : '🎙 마이크 준비됨'}</b>
+  camEl('State').innerHTML = `<div class="masked ok"><b>${video ? '📹 카메라 · 마이크 준비됨' : '🎙 마이크 준비됨'}</b>
     <small>녹화물은 이 브라우저 안에만 있습니다. 저장하려면 아래 내려받기를 누르세요.</small></div>`;
-  $('#rhRecBtn').disabled = false;
+  camEl('RecBtn').disabled = false;
   rh.isVideo = video;
 }
+
 function rhClose() {
   if (rh.rec && rh.rec.state !== 'inactive') { try { rh.rec.stop(); } catch (e) { /* 무시 */ } }
   if (rh.stream) rh.stream.getTracks().forEach((t) => t.stop());
   rh.stream = null; rh.rec = null;
-  const live = $('#rhLive');
-  if (live) { live.srcObject = null; live.hidden = true; }
-  const b = $('#rhRecBtn');
-  if (b) { b.disabled = true; b.textContent = '● 녹화 시작'; b.classList.remove('rec'); }
+  ['rh', 'pc'].forEach((p) => {
+    const live = $('#' + p + 'Live');
+    if (live) { live.srcObject = null; live.hidden = true; }
+    const b = $('#' + p + 'RecBtn');
+    if (b) { b.disabled = true; b.textContent = '● 녹화 시작'; b.classList.remove('rec'); }
+  });
 }
+
 function rhToggleRecord() {
   if (!rh.stream) return;
   if (rh.rec && rh.rec.state === 'recording') { rh.rec.stop(); return; }
@@ -1132,6 +1210,7 @@ function rhToggleRecord() {
     ? ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm', 'video/mp4']
     : ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4'];
   const mimeType = types.find((t) => MediaRecorder.isTypeSupported(t));
+  const p = cam.p;                       // 녹화가 끝날 때까지 어느 화면인지 기억
   rh.chunks = [];
   rh.rec = new MediaRecorder(rh.stream, mimeType ? { mimeType } : undefined);
   rh.rec.ondataavailable = (e) => { if (e.data.size) rh.chunks.push(e.data); };
@@ -1139,20 +1218,21 @@ function rhToggleRecord() {
     const blob = new Blob(rh.chunks, { type: rh.chunks[0] ? rh.chunks[0].type : 'video/webm' });
     if (rh.url) URL.revokeObjectURL(rh.url);
     rh.url = URL.createObjectURL(blob);
-    const play = $('#rhPlay');
+    const play = $('#' + p + 'Play');
     play.hidden = false; play.src = rh.url;
-    const dl = $('#rhDownload');
+    const dl = $('#' + p + 'Download');
     const ext = blob.type.includes('mp4') ? 'mp4' : 'webm';
     dl.hidden = false; dl.href = rh.url;
-    dl.download = `면접연습_${rh.i + 1}번문항_${new Date().toISOString().slice(0, 10)}.${ext}`;
-    $('#rhRecBtn').textContent = '● 녹화 시작';
-    $('#rhRecBtn').classList.remove('rec');
-    rhStopTimer();
+    dl.download = `면접연습_${new Date().toISOString().slice(0, 10)}.${ext}`;
+    const b = $('#' + p + 'RecBtn');
+    b.textContent = '● 녹화 시작';
+    b.classList.remove('rec');
+    camTimerStop();
   };
   rh.rec.start();
-  $('#rhRecBtn').textContent = '■ 녹화 정지';
-  $('#rhRecBtn').classList.add('rec');
-  rhResetTimer(); rhStartTimer();
+  camEl('RecBtn').textContent = '■ 녹화 정지';
+  camEl('RecBtn').classList.add('rec');
+  camTimerStart();
 }
 
 function rehearsePanel(qs) {
@@ -1180,19 +1260,7 @@ function rehearsePanel(qs) {
         <details class="rh-points" id="rhPoints"></details>
       </div>
       <div class="rh-cam">
-        <video id="rhLive" autoplay muted playsinline hidden></video>
-        <div class="row" style="justify-content:center">
-          <button class="btn sub" id="rhCam">📹 카메라 + 마이크</button>
-          <button class="btn sub" id="rhMic">🎙 마이크만</button>
-          <button class="btn sub" id="rhOff">끄기</button>
-        </div>
-        <div class="row" style="justify-content:center;margin-top:8px">
-          <button class="btn" id="rhRecBtn" disabled>● 녹화 시작</button>
-          <a class="btn sub" id="rhDownload" hidden download>⬇ 내려받기</a>
-        </div>
-        <div id="rhState"></div>
-        <video id="rhPlay" controls hidden></video>
-      </div>
+        ${cameraBlock('rh')}
     </div>
   </div>`;
 }
@@ -1200,21 +1268,11 @@ function rehearsePanel(qs) {
 function bindRehearse(qs) {
   rh.qs = qs;
   if (!qs.length) return;
-  if (!canRecord()) {
-    $('#rhState').innerHTML = `<div class="notice">이 환경에서는 녹화를 쓸 수 없습니다.
-      카메라·마이크는 보안 연결에서만 열립니다 —
-      <b>index.html 을 파일로 여는 대신</b> <code>py -m http.server 8765</code> 로 실행하거나
-      https 주소로 접속하면 사용할 수 있습니다. 문항 연습과 타이머는 그대로 쓸 수 있습니다.</div>`;
-    ['rhCam', 'rhMic', 'rhOff'].forEach((id) => { $('#' + id).disabled = true; });
-  }
+  bindCamera('rh');
   $('#rhPrev').addEventListener('click', () => rhShow(rh.i - 1));
   $('#rhNext').addEventListener('click', () => rhShow(rh.i + 1));
   $('#rhRand').addEventListener('click', () => rhShow(Math.floor(Math.random() * rh.qs.length)));
   $('#rhTimerBtn').addEventListener('click', rhStartTimer);
-  $('#rhCam').addEventListener('click', () => rhOpen(true));
-  $('#rhMic').addEventListener('click', () => rhOpen(false));
-  $('#rhOff').addEventListener('click', () => { rhClose(); $('#rhState').innerHTML = ''; });
-  $('#rhRecBtn').addEventListener('click', rhToggleRecord);
   rhShow(0);
 }
 window.addEventListener('pagehide', rhClose);
