@@ -7,7 +7,7 @@ const esc = (s) => String(s == null ? '' : s)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
   .replace(/"/g, '&quot;');
 
-const ASSET_VER = '20260911i';   // 배포마다 올려 브라우저 캐시를 갱신한다
+const ASSET_VER = '20260911j';   // 배포마다 올려 브라우저 캐시를 갱신한다
 const OFFICIAL = '__official__';
 const ADMISSION = '__admission__';   // 학과 필터와 섞이지 않는 특수 키
 
@@ -1043,7 +1043,9 @@ async function pickReference(univName, deptName) {
   return out;
 }
 
-function buildPrompt(rec, meta, refs) {
+function buildPrompt(rec, meta, refs, count) {
+  const n = count || 12;
+  const share = (r) => Math.max(1, Math.round(n * r));
   return `당신은 대한민국 대학 학생부종합전형의 면접위원이자 입학사정관입니다.
 아래 학생의 학교생활기록부를 읽고, 실제 면접에서 나올 법한 질문을 설계하세요.
 
@@ -1062,15 +1064,15 @@ ${rec.slice(0, 40000)}
 
 [작성 지침]
 1. 반드시 학생부에 실제로 적힌 활동·개념·표현에 근거해 질문을 만드세요. 기록에 없는 내용을 지어내지 마세요.
-2. 질문은 18개 내외로, 다음 유형을 고르게 포함하세요.
-   - 지원동기/진로: 3개
-   - 활동 심화(동아리·자율·진로 활동): 4개
-   - 교과 세특 개념 확인(전공 관련 학업역량): 5개
-   - 공동체역량·인성: 3개
-   - 진로계획·학업계획: 2개
+2. 질문은 정확히 ${n}개만, 다음 유형을 고르게 포함하세요.
+   - 지원동기/진로: ${share(0.17)}개
+   - 활동 심화(동아리·자율·진로 활동): ${share(0.22)}개
+   - 교과 세특 개념 확인(전공 관련 학업역량): ${share(0.28)}개
+   - 공동체역량·인성: ${share(0.17)}개
+   - 진로계획·학업계획: ${share(0.11)}개
    - 압박·돌발: 1개
-3. 각 질문에는 면접관이 왜 묻는지(why), 답변에서 반드시 짚어야 할 포인트 2~4개(points),
-   이어질 수 있는 꼬리질문 1~2개(followups)를 함께 쓰세요.
+3. 각 질문에는 면접관이 왜 묻는지(why, 한 문장), 답변에서 짚어야 할 포인트 2~3개(points, 각 한 줄),
+   이어질 수 있는 꼬리질문 1개(followups)를 쓰세요. 문장을 길게 늘이지 마세요.
 4. 개념 확인 질문은 학생부에 등장한 구체적 용어를 그대로 인용하세요.
 5. 모든 서술은 한국어 존댓말로, 실제 면접관의 말투로 작성하세요.
 
@@ -1080,7 +1082,7 @@ ${rec.slice(0, 40000)}
   "strengths": [ { "title": "강점", "evidence": "학생부의 어떤 기록에서 드러나는지" } ],
   "gaps": [ { "title": "보완이 필요한 지점", "risk": "면접에서 어떻게 공격받을 수 있는지", "fix": "무엇을 준비해야 하는지" } ],
   "questions": [ { "category": "유형", "q": "질문", "why": "출제 의도", "points": ["답변 포인트"], "followups": ["꼬리질문"] } ],
-  "closing": { "lastWord": "이 학생에게 어울리는 '마지막으로 하고 싶은 말' 초안 3~4문장" }
+  "closing": { "lastWord": "이 학생에게 어울리는 '마지막으로 하고 싶은 말' 초안 3문장" }
 }`;
 }
 
@@ -1095,7 +1097,7 @@ async function callGemini(key, model, prompt) {
       generationConfig: {
         temperature: 0.8,
         responseMimeType: 'application/json',
-        maxOutputTokens: 8192,          // 기본값이 낮아 답이 중간에 잘리는 일이 있었다
+        maxOutputTokens: 32768,         // 한국어 JSON 은 토큰을 많이 먹어 넉넉히 잡는다
       },
     }),
   });
@@ -1126,6 +1128,7 @@ async function callGemini(key, model, prompt) {
   const parsed = parseLooseJSON(cleaned);
   if (parsed) {
     if (cand.finishReason === 'MAX_TOKENS') parsed._truncated = true;
+    parsed._usage = j.usageMetadata || null;
     return parsed;
   }
   if (cand.finishReason === 'MAX_TOKENS') {
@@ -1378,10 +1381,14 @@ function bindRehearse(qs) {
 window.addEventListener('pagehide', rhClose);
 
 function renderAnalysis(a, refs) {
+  const u = a._usage || {};
+  const usageLine = u.totalTokenCount
+    ? ` (입력 ${u.promptTokenCount || 0} · 생각 ${u.thoughtsTokenCount || 0} · 답변 ${u.candidatesTokenCount || 0} 토큰)`
+    : '';
   const truncNote = a._truncated
     ? `<div class="notice" style="margin-bottom:14px"><b>⚠ 응답이 끝까지 오지 못했습니다.</b>
         출력 한도에 걸려 뒤부분이 잘렸고, 받은 데까지만 보여 드립니다.
-        생기부를 나누어 넣으면 더 많은 문항을 받을 수 있습니다.</div>`
+        생기부를 나누어 넣으면 더 많은 문항을 받을 수 있습니다.${usageLine}</div>`
     : '';
 
   const box = $('#analyzeOut');
@@ -1494,7 +1501,16 @@ $('#analyzeBtn').addEventListener('click', async () => {
 
   try {
     const refs = await pickReference(meta.univ, meta.dept);
-    const data = await callGemini(key, model, buildPrompt(safe, meta, refs));
+    let data = await callGemini(key, model, buildPrompt(safe, meta, refs, 12));
+    // 그래도 잘렸다면 문항 수를 줄여 한 번 더 — 대개 이쪽이 온전히 들어온다
+    if (data._truncated) {
+      out.innerHTML = '<div class="progress"><i></i></div>'
+        + '<p class="hint">응답이 길어 잘렸습니다. 문항 수를 줄여 다시 요청하는 중…</p>';
+      try {
+        const retry = await callGemini(key, model, buildPrompt(safe, meta, refs, 8));
+        if (!retry._truncated) { retry._retried = true; data = retry; }
+      } catch (e) { /* 재시도 실패 시 처음 결과를 그대로 쓴다 */ }
+    }
     renderAnalysis(data, refs);
   } catch (e) {
     out.innerHTML = `<div class="err"><b>분석에 실패했습니다.</b>\n${esc(e.message)}</div>`;
