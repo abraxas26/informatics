@@ -81,16 +81,20 @@ def page_lines(page):
             if t.strip():
                 rows.append((round(l["bbox"][1], 1), round(l["bbox"][0], 1), t))
     rows.sort()
+    def emit(acc, y):
+        acc = sorted(acc, key=lambda x: x[0])      # 한 줄 안에서는 왼쪽부터
+        return (y, acc[0][0], "  ".join(x[1] for x in acc))
+
     out, buf, by = [], [], None
     for y, x0, t in rows:
         if by is not None and y - by > 3.2:
-            out.append((by, buf[0][0], "  ".join(x[1] for x in buf)))
+            out.append(emit(buf, by))
             buf = []
         if not buf:
             by = y
         buf.append((x0, t))
     if buf:
-        out.append((by, buf[0][0], "  ".join(x[1] for x in buf)))
+        out.append(emit(buf, by))
     return out
 
 
@@ -127,7 +131,15 @@ def main():
             s = raw.strip()
             if y < 62 or y > 790 or any(k in s for k in FOOT):
                 continue
-            if UNIV_NO.match(s):          # "01 고려대학교" 같은 절 표지
+            mu = UNIV_NO.match(s)
+            if mu:
+                # "06 영남대학교" 같은 절 표지가 대학 경계의 기준이다.
+                # 머리말은 절 첫 쪽에서 이전 대학 것이 남아 있는 경우가 있어 믿을 수 없다.
+                name = mu.group(1).strip()
+                if name != univ:
+                    close()
+                    univ = name
+                    jeonhyeong = track = ""
                 continue
 
             # ── 제시문 기반: "1-1  문 제" 형태의 블록 표지

@@ -7,7 +7,7 @@ const esc = (s) => String(s == null ? '' : s)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
   .replace(/"/g, '&quot;');
 
-const ASSET_VER = '20260911d';   // 배포마다 올려 브라우저 캐시를 갱신한다
+const ASSET_VER = '20260911e';   // 배포마다 올려 브라우저 캐시를 갱신한다
 const OFFICIAL = '__official__';
 const ADMISSION = '__admission__';   // 학과 필터와 섞이지 않는 특수 키
 
@@ -184,8 +184,7 @@ async function selectUniv(slug, opts) {
   const terms = (opts && opts.terms) || [];
   $$('.uitem').forEach((b) => b.setAttribute('aria-current', String(b.dataset.slug === slug)));
   if ($('#univSelect').value !== slug) $('#univSelect').value = slug;
-  const active = $('.uitem[aria-current="true"]');
-  if (active) active.scrollIntoView({ block: 'nearest' });
+  revealInList($('#univList .uitem[aria-current="true"]'));
 
   const box = $('#univDetail');
   box.innerHTML = '<div class="pad"><div class="progress"><i></i></div></div>';
@@ -229,6 +228,17 @@ async function selectUniv(slug, opts) {
 
   if (opts && opts.focus) revealQuestion(box, opts.focus);
   else if (opts && opts.scroll) scrollToEl(box, false);
+}
+
+/** 목록 안에서만 스크롤한다 — scrollIntoView 는 페이지까지 끌고 올라가 버린다 */
+function revealInList(el) {
+  if (!el) return;
+  const box = el.closest('.ulist');
+  if (!box) return;
+  const top = el.offsetTop - box.offsetTop;
+  if (top < box.scrollTop || top + el.offsetHeight > box.scrollTop + box.clientHeight) {
+    box.scrollTop = top - Math.max(0, (box.clientHeight - el.offsetHeight) / 2);
+  }
 }
 
 /** 부드러운 스크롤이 막힌 환경에서도 반드시 이동하도록 보정한다 */
@@ -682,8 +692,7 @@ function showJes(id) {
   if (!s) return;
   $$('#jList .uitem').forEach((b) => b.setAttribute('aria-current', String(b.dataset.jid === id)));
   if ($('#jSelect').value !== id) $('#jSelect').value = id;
-  const active = $('#jList .uitem[aria-current="true"]');
-  if (active) active.scrollIntoView({ block: 'nearest' });
+  revealInList($('#jList .uitem[aria-current="true"]'));
 
   const pre = s.img || 'p';
   const src = (p) => `data/jesimun/${pre}${String(p).padStart(3, '0')}.${jes.data.ext}`;

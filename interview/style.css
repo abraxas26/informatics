@@ -449,10 +449,10 @@ footer.site{
 .btn.sm:active{box-shadow:0 1px 0 var(--field-line)}
 
 /* 선택된 대학이 목록에서 확실히 보이도록 */
-.uitem[aria-current="true"]{position:relative}
+.uitem[aria-current="true"]{position:relative;padding-right:62px}
 .uitem[aria-current="true"]::after{
-  content:"보는 중";position:absolute;right:10px;top:50%;transform:translateY(-50%);
+  content:"보는 중";position:absolute;right:10px;top:10px;
   font-size:10.5px;font-weight:800;color:#fff;background:var(--accent);
-  padding:2px 7px;border-radius:999px;
+  padding:2px 7px;border-radius:999px;white-space:nowrap;
 }
 .uitem[aria-current="true"] small{visibility:hidden}
