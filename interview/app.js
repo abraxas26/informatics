@@ -7,7 +7,7 @@ const esc = (s) => String(s == null ? '' : s)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
   .replace(/"/g, '&quot;');
 
-const ASSET_VER = '20260911e';   // 배포마다 올려 브라우저 캐시를 갱신한다
+const ASSET_VER = '20260911f';   // 배포마다 올려 브라우저 캐시를 갱신한다
 const OFFICIAL = '__official__';
 const ADMISSION = '__admission__';   // 학과 필터와 섞이지 않는 특수 키
 

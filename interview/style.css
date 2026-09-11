@@ -129,6 +129,9 @@ button,input,select,textarea{font:inherit;color:inherit}
 .panel{background:var(--panel);border:3px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
 .pad{padding:20px}
 .grid-2{display:grid;grid-template-columns:308px 1fr;gap:20px;align-items:start}
+/* 그리드 칸은 기본값(min-width:auto)이라 내용보다 작아지지 못한다.
+   학과 칩이 많은 대학에서 칩 줄이 접히지 않고 칸을 통째로 늘려 화면 밖으로 밀려났다. */
+.grid-2 > *{min-width:0}
 @media (max-width:880px){.grid-2{grid-template-columns:1fr}}
 
 /* ── 폼 ───────────────────────────── */
