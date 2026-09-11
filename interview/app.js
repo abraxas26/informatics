@@ -7,7 +7,7 @@ const esc = (s) => String(s == null ? '' : s)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
   .replace(/"/g, '&quot;');
 
-const ASSET_VER = '20260911j';   // 배포마다 올려 브라우저 캐시를 갱신한다
+const ASSET_VER = '20260911k';   // 배포마다 올려 브라우저 캐시를 갱신한다
 const OFFICIAL = '__official__';
 const ADMISSION = '__admission__';   // 학과 필터와 섞이지 않는 특수 키
 
@@ -1086,10 +1086,22 @@ ${rec.slice(0, 40000)}
 }`;
 }
 
-async function callGemini(key, model, prompt) {
+/* 모델 과부하(429/503)는 구글 쪽 일시적 상황이라 잠깐 쉬었다 다시 부르면 대개 풀린다 */
+const BUSY_RE = /high demand|overloaded|unavailable|quota|rate limit|try again later|잠시 후/i;
+const isBusy = (status, msg) => status === 429 || status === 500 || status === 503
+  || (status >= 500 && status < 600) || BUSY_RE.test(msg || '');
+
+function onRetry(msg) {                      // 재시도 상황을 화면에 알린다
+  const out = $('#analyzeOut');
+  if (out) out.innerHTML = '<div class="progress"><i></i></div><p class="hint">' + esc(msg) + '</p>';
+}
+
+async function callGemini(key, model, prompt, attempt) {
   const url = 'https://generativelanguage.googleapis.com/v1beta/models/' +
     encodeURIComponent(model) + ':generateContent?key=' + encodeURIComponent(key);
-  const r = await fetch(url, {
+  let r;
+  try {
+    r = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -1100,10 +1112,37 @@ async function callGemini(key, model, prompt) {
         maxOutputTokens: 32768,         // 한국어 JSON 은 토큰을 많이 먹어 넉넉히 잡는다
       },
     }),
-  });
+    });
+  } catch (e) {                              // 네트워크가 끊겼거나 일시적으로 실패한 경우
+    const tries = attempt || 1;
+    if (tries < 3) {
+      onRetry(`연결이 불안정합니다. 5초 뒤 다시 시도합니다… (${tries}/2)`);
+      await new Promise((res) => setTimeout(res, 5000));
+      return callGemini(key, model, prompt, tries + 1);
+    }
+    throw new Error('네트워크 연결을 확인해 주세요.' + String.fromCharCode(10) + e.message);
+  }
   const j = await r.json();
   if (!r.ok) {
     const msg = (j.error && j.error.message) || ('HTTP ' + r.status);
+    const tries = attempt || 1;
+    if (isBusy(r.status, msg) && tries < 4) {
+      const wait = [3, 8, 15][tries - 1] || 15;
+      onRetry(`모델이 혼잡합니다. ${wait}초 뒤 다시 시도합니다… (${tries}/3)`);
+      await new Promise((res) => setTimeout(res, wait * 1000));
+      return callGemini(key, model, prompt, tries + 1);
+    }
+    if (isBusy(r.status, msg)) {
+      throw new Error([
+        '지금 이 모델에 요청이 몰려 있습니다. (구글 서버 쪽 상황이며 API 키 문제가 아닙니다)',
+        '3번까지 자동으로 다시 시도했지만 계속 거절당했습니다.',
+        '',
+        '· 잠시 뒤 다시 눌러 보시거나,',
+        '· [모델 목록 불러오기] 에서 다른 모델(예: 2.5-flash)을 골라 보세요.',
+        '',
+        msg,
+      ].join(String.fromCharCode(10)));
+    }
     if (r.status === 404 || /not found|not supported|unsupported/i.test(msg)) {
       throw new Error([
         '‘' + model + '’ 모델을 이 API 키로 쓸 수 없습니다.',
