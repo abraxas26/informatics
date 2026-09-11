@@ -7,7 +7,7 @@ const esc = (s) => String(s == null ? '' : s)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
   .replace(/"/g, '&quot;');
 
-const ASSET_VER = '20260911k';   // 배포마다 올려 브라우저 캐시를 갱신한다
+const ASSET_VER = '20260911l';   // 배포마다 올려 브라우저 캐시를 갱신한다
 const OFFICIAL = '__official__';
 const ADMISSION = '__admission__';   // 학과 필터와 섞이지 않는 특수 키
 
@@ -879,9 +879,21 @@ const PII_RULES = [
   { id: 'name', label: '성명(인적사항)',
     re: /(성\s*명|이\s*름|학생\s*명|지원자\s*명|담임|담임\s*교사|지도\s*교사)(\s*[:：]\s*|\s{2,})([가-힣]{2,5})/g,
     to: '$1$2○○○' },
-  { id: 'name2', label: '사람 이름(호칭)',
-    re: /([가-힣]{2,4})(?=\s*(?:선생님|선생님께|선생님과|교사님))/g,
-    to: (m) => (NOT_A_NAME.has(m) ? m : '○○○') },
+  /* 호칭이 뒤에 오는 경우: '김철수 선생님', '김철수 담임선생님', '김철수 쌤' */
+  { id: 'name2', label: '교사 이름',
+    re: /([가-힣]{2,4})(\s*(?:담임\s*)?(?:선생님|선생|교사님|교사|쌤|샘))/g,
+    to: (whole, nm, tail) => (NOT_A_NAME.has(nm) ? null : '○○○' + tail) },
+
+  /* 호칭이 앞에 오는 경우: '담임교사 김철수', '지도교사 : 김철수' — 뒤에 조사가 붙지 않은 것만 */
+  { id: 'name3', label: '교사 이름',
+    // 라벨 뒤에 반드시 공백이나 콜론이 와야 한다 — '담임선생님께서' 의 '께서' 를 이름으로 잡지 않도록
+    re: /(담임\s*선생님|담임\s*교사|담임\s*쌤|담임\s*샘|담임|지도\s*교사|담당\s*교사|상담\s*교사|부장\s*선생님)(\s*[:：]\s*|\s+)(?!선생|교사|쌤|샘)([가-힣]{2,4})(의|은|는|이|가|와|과|께|께서|에게|님)?(?=[\s,.)·]|$)/g,
+    to: (whole, lab, sep, nm, josa) => (NOT_A_NAME.has(nm) ? null : lab + sep + '○○○' + (josa || '')) },
+
+  /* 괄호 표기: '상담교사(임수정)' */
+  { id: 'name4', label: '교사 이름',
+    re: /(담임\s*선생님|담임\s*교사|담임|지도\s*교사|담당\s*교사|상담\s*교사)\s*\(\s*([가-힣]{2,4})\s*\)/g,
+    to: (whole, lab, nm) => (NOT_A_NAME.has(nm) ? null : lab + '(○○○)') },
 
   { id: 'exam', label: '수험번호 · 학번',
     re: /(수험\s*번호|학\s*번|지원\s*번호|접수\s*번호|고유\s*번호)(\s*[:：]\s*|\s{2,})([A-Za-z0-9-]{3,})/g,
@@ -912,9 +924,9 @@ function maskPII(text, myName) {
   PII_RULES.forEach((r) => {
     if (typeof r.to === 'function') {
       let n = 0;
-      out = out.replace(r.re, (whole, g1) => {
-        const rep = r.to(g1 === undefined ? whole : g1);
-        if (rep === (g1 === undefined ? whole : g1)) return whole;   // 이름이 아니라고 판단
+      out = out.replace(r.re, (...args) => {
+        const rep = r.to(...args);
+        if (rep == null) return args[0];        // 이름이 아니라고 판단 — 그대로 둔다
         n += 1;
         return rep;
       });
