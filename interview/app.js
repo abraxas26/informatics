@@ -7,7 +7,7 @@ const esc = (s) => String(s == null ? '' : s)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
   .replace(/"/g, '&quot;');
 
-const ASSET_VER = '20260911h';   // 배포마다 올려 브라우저 캐시를 갱신한다
+const ASSET_VER = '20260911i';   // 배포마다 올려 브라우저 캐시를 갱신한다
 const OFFICIAL = '__official__';
 const ADMISSION = '__admission__';   // 학과 필터와 섞이지 않는 특수 키
 
@@ -1092,7 +1092,11 @@ async function callGemini(key, model, prompt) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.8, responseMimeType: 'application/json' },
+      generationConfig: {
+        temperature: 0.8,
+        responseMimeType: 'application/json',
+        maxOutputTokens: 8192,          // 기본값이 낮아 답이 중간에 잘리는 일이 있었다
+      },
     }),
   });
   const j = await r.json();
@@ -1119,12 +1123,59 @@ async function callGemini(key, model, prompt) {
     throw new Error('응답 본문이 비었습니다 (' + (cand.finishReason || '사유 불명') + ').');
   }
   const cleaned = text.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '').trim();
-  try { return JSON.parse(cleaned); }
-  catch (e) {
-    const m = cleaned.match(/\{[\s\S]*\}/);
-    if (m) return JSON.parse(m[0]);
-    throw new Error('JSON 형식으로 해석하지 못했습니다.\n\n' + cleaned.slice(0, 500));
+  const parsed = parseLooseJSON(cleaned);
+  if (parsed) {
+    if (cand.finishReason === 'MAX_TOKENS') parsed._truncated = true;
+    return parsed;
   }
+  if (cand.finishReason === 'MAX_TOKENS') {
+    throw new Error([
+      '응답이 출력 한도에 걸려 중간에 잘렸습니다.',
+      '생기부 분량을 줄여서(세특·창체 위주로) 다시 시도하거나,',
+      '[모델 목록 불러오기] 에서 더 긴 응답이 가능한 모델을 골라 보세요.',
+    ].join(String.fromCharCode(10)));
+  }
+  throw new Error('JSON 형식으로 해석하지 못했습니다.'
+    + String.fromCharCode(10, 10) + cleaned.slice(0, 500));
+}
+
+/** 잘리거나 살짝 어긋난 JSON 도 최대한 살려서 읽는다 */
+const BACKSLASH = String.fromCharCode(92);
+
+function parseLooseJSON(src) {
+  const tryParse = (t) => { try { return JSON.parse(t); } catch (e) { return null; } };
+
+  let out = tryParse(src);
+  if (out) return out;
+
+  const first = src.indexOf('{');
+  const last = src.lastIndexOf('}');
+  if (first >= 0 && last > first) {
+    out = tryParse(src.slice(first, last + 1));
+    if (out) return out;
+  }
+  if (first < 0) return null;
+
+  // 잘린 경우: 값이 온전히 끝난 마지막 지점까지만 남기고 괄호를 닫아 준다
+  const s = src.slice(first);
+  const stack = [];
+  let inStr = false, esc = false, safe = -1, safeStack = null;
+  for (let i = 0; i < s.length; i += 1) {
+    const c = s[i];
+    if (inStr) {
+      if (esc) esc = false;
+      else if (c === BACKSLASH) esc = true;
+      else if (c === '"') inStr = false;
+      continue;
+    }
+    if (c === '"') { inStr = true; continue; }
+    if (c === '{' || c === '[') stack.push(c === '{' ? '}' : ']');
+    else if (c === '}' || c === ']') { stack.pop(); safe = i; safeStack = stack.slice(); }
+    else if (c === ',') { safe = i - 1; safeStack = stack.slice(); }
+  }
+  if (safe < 0 || !safeStack) return null;
+  const closed = s.slice(0, safe + 1).replace(/,\s*$/, '') + safeStack.reverse().join('');
+  return tryParse(closed);
 }
 
 /* ── 모의 면접 연습 (카메라·마이크 녹화) ───────────────
@@ -1327,6 +1378,12 @@ function bindRehearse(qs) {
 window.addEventListener('pagehide', rhClose);
 
 function renderAnalysis(a, refs) {
+  const truncNote = a._truncated
+    ? `<div class="notice" style="margin-bottom:14px"><b>⚠ 응답이 끝까지 오지 못했습니다.</b>
+        출력 한도에 걸려 뒤부분이 잘렸고, 받은 데까지만 보여 드립니다.
+        생기부를 나누어 넣으면 더 많은 문항을 받을 수 있습니다.</div>`
+    : '';
+
   const box = $('#analyzeOut');
   const s = a.summary || {}, qs = a.questions || [];
   const byCat = new Map();
@@ -1356,6 +1413,7 @@ function renderAnalysis(a, refs) {
       </div>
     </div>
 
+    ${truncNote}
     ${rehearsePanel(qs)}
 
     <div class="panel pad" style="margin-bottom:18px">
