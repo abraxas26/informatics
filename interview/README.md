@@ -158,6 +158,12 @@ py tools/build_jesimun.py  data jesimun.json sejong_jesi.json
 `build_data.py` 는 중간 산출물(`ulsan.json` 등)을 스크립트 디렉터리의 부모에서 찾습니다.
 `data/` 를 지우고 다시 만들면 되고, 마지막에 `emit_js.py` 까지 실행해야 앱이 읽습니다.
 
+> ⚠️ **`data/*.js` 를 통째로 지우고 다시 만들 때 주의**
+> `data/jesimun.js` 는 위 파이프라인(`emit_js.py`)이 만들지 않고 `build_jesimun.py` 가 따로 만듭니다.
+> 후기 데이터만 다시 빌드하려고 `rm data/*.js` 를 하면 제시문 데이터까지 사라져
+> 3번 탭에서 "data/jesimun.js 를 불러오지 못했습니다" 오류가 납니다.
+> 지웠다면 `build_jesimun.py` 도 반드시 다시 실행하세요.
+
 ## 알려진 한계
 
 - 후기는 응시생이 기억에 의존해 작성한 기록이라 실제 문항·표현과 다를 수 있습니다.
