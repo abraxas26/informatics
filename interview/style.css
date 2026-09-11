@@ -476,3 +476,11 @@ footer.site{
 #pcDownload{text-decoration:none;display:inline-block;line-height:1.4}
 #pcState{margin-top:10px}
 #pcState .masked,#pcState .notice,#pcState .err{font-size:12.5px}
+
+/* 출제 비율 해석 안내 — 8개 유형 비율의 합이 100% 가 아닌 이유 */
+.ratio-note{
+  margin:0 0 14px;padding:9px 12px;border-radius:9px;
+  background:var(--bg-2);border:1px solid var(--line);
+  font-size:12.5px;line-height:1.6;color:var(--ink-3);
+}
+.ratio-note b{color:var(--ink-2)}

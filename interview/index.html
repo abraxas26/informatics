@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Gowun+Dodum&family=JetBrains+Mono:wght@500;700&family=Noto+Sans+KR:wght@500;700;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=20260911n">
+<link rel="stylesheet" href="style.css?v=20260911q">
 </head>
 <body>
 
@@ -75,7 +75,7 @@
     <div class="hero">
       <h1>공통 면접 문항</h1>
       <p><span>거의 모든 학생부 기반 면접에서 반복되는 8가지 문항 유형입니다.</span>
-         <span>출제 비율은 이 사이트가 수집한 실제 기출 문항을 분석해 산출했습니다.</span></p>
+         <span>출제 비율은 이 사이트가 수집한 면접 후기 문항과 대학이 공개한 예시문항을 분석해 산출했습니다.</span></p>
     </div>
 
     <div class="panel" style="margin-bottom:18px">
@@ -85,7 +85,7 @@
         <div class="timer" id="pracTimer">00:00</div>
         <div class="hint" id="pracHint">권장 답변 시간 60초 · 소리 내어 말하며 연습하세요</div>
         <div class="row" style="justify-content:center;margin-top:14px">
-          <button class="btn" id="pracNext">랜덤 문항 뽑기</button>
+          <button class="btn" id="pracNext">문항 뽑기</button>
           <button class="btn sub" id="pracToggle">타이머 시작</button>
           <button class="btn sub" id="pracCamToggle">📹 내 모습 보며 연습</button>
         </div>
@@ -105,7 +105,8 @@
       <div id="deptResult"></div>
     </div>
 
-    <div class="chips" id="commonChips" style="margin-bottom:14px"></div>
+    <div class="chips" id="commonChips" style="margin-bottom:10px"></div>
+    <p class="ratio-note" id="commonNote"></p>
     <div id="commonList"></div>
   </section>
 
@@ -220,18 +221,18 @@
 <button id="backToSearch" class="back-jump" hidden>↑ 검색 결과로 돌아가기</button>
 
 <footer class="site">
-  <b>자료 출처</b><br>
-  · 울산광역시교육청 「2025 대입 면접후기 자료집」<br>
-  · 경상남도교육청 「2026학년도 대입을 위한 면접 전략 자료집[학생부 기반]」<br>
-  · 세종특별자치시교육청 「보인다! 5.0 면접지도 길라잡이」 — 2024학년도 대입 면접 후기<br>
-  · 인천광역시교육청 「2026학년도 대입 구술면접자료집」 — 서류 기반 및 인성 면접<br>
+  <b>자료 출처</b> <span style="font-weight:400;color:var(--ink-3)">— 발행 기관 가나다순</span><br>
   · 경기도 진학 연구팀(진심) 「2026 면접을 준비하다」 — 2025 선행학습영향평가 결과보고서 면접예시문항<br>
+  · 경상남도교육청 「2026학년도 대입을 위한 면접 전략 자료집[학생부 기반]」<br>
   · 부산광역시교육청학력개발원 「2026학년도 대입 수시모집 대비 면접자료집」 — 제시문 기반 면접 · MMI<br>
-  · 세종특별자치시교육청 「2027학년도 대입 수시모집 면접 전형 자료집」<br>
-  · 세종특별자치시교육청 「2026학년도 제시문 기반 면접 기출문제 분석 자료집」<br>
   · 세종특별자치시교육청 「2020 보인다! 면접지도 길라잡이」<br>
-  · 충청북도교육청 「2025 수시 면접 사례집(1권·2권)」<br>
+  · 세종특별자치시교육청 「2026학년도 제시문 기반 면접 기출문제 분석 자료집」<br>
+  · 세종특별자치시교육청 「2027학년도 대입 수시모집 면접 전형 자료집」<br>
+  · 세종특별자치시교육청 「보인다! 5.0 면접지도 길라잡이」 — 2024학년도 대입 면접 후기<br>
+  · 울산광역시교육청 「2025 대입 면접후기 자료집」<br>
+  · 인천광역시교육청 「2026학년도 대입 구술면접자료집」 — 서류 기반 및 인성 면접<br>
   · 충청북도교육청 「2025 대입 면접 후기집」 · 「2024 수시 대비 면접 후기집」 · 「2022 대입 면접 후기집」<br>
+  · 충청북도교육청 「2025 수시 면접 사례집(1권·2권)」<br>
   <span style="display:block;margin-top:10px">
     후기는 응시생이 기억에 의존해 직접 작성한 기록이므로 실제 문항·표현과 다를 수 있습니다.
     전형 방법과 면접 방식은 매년 달라지므로 반드시 지원 대학의 최신 모집요강을 확인하세요.
@@ -241,8 +242,8 @@
   </p>
 </footer>
 
-<script src="data/index.js?v=20260911n"></script>
-<script src="data/common.js?v=20260911n"></script>
-<script src="app.js?v=20260911n"></script>
+<script src="data/index.js?v=20260911q"></script>
+<script src="data/common.js?v=20260911q"></script>
+<script src="app.js?v=20260911q"></script>
 </body>
 </html>

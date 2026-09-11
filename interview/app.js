@@ -7,7 +7,7 @@ const esc = (s) => String(s == null ? '' : s)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
   .replace(/"/g, '&quot;');
 
-const ASSET_VER = '20260911n';   // 배포마다 올려 브라우저 캐시를 갱신한다
+const ASSET_VER = '20260911q';   // 배포마다 올려 브라우저 캐시를 갱신한다
 const OFFICIAL = '__official__';
 const ADMISSION = '__admission__';   // 학과 필터와 섞이지 않는 특수 키
 
@@ -458,14 +458,18 @@ function renderCommon(activeId) {
   $$('#commonChips .chip').forEach((b) =>
     b.addEventListener('click', () => renderCommon(b.dataset.cid || null)));
 
+  const total = state.common.totalQuestions || 0;
+  $('#commonNote').innerHTML = `분모는 이 사이트가 수집한 <b>${total.toLocaleString()}개</b> 문항(면접 후기 문항 + 대학이 공개한 예시문항)입니다.
+     한 문항이 두 유형에 함께 해당하거나 어느 유형에도 들지 않는 경우가 있어 8개 비율의 합은 100%가 되지 않습니다.`;
+
   const list = activeId ? cats.filter((c) => c.id === activeId) : cats;
   $('#commonList').innerHTML = list.map((c) => `
     <section class="ccard${c.star ? ' starred' : ''}">
       <header>
         <h3>${c.star ? '<span class="star" aria-label="중요">★</span>' : ''}${esc(c.title)}</h3>
-        <span class="badge">실제 기출의 ${c.share}%</span>
-        <span class="badge n">${c.count.toLocaleString()}개 문항에서 확인</span>
-        ${c.star ? '<span class="badge w">가장 많이 묻는 구간</span>' : ''}
+        <span class="badge">수집 문항의 ${c.share}%</span>
+        <span class="badge n">${c.count.toLocaleString()}개가 이 유형</span>
+        ${c.star ? `<span class="badge w">${esc(c.starLabel || '가장 많이 묻는 구간')}</span>` : ''}
       </header>
       <p class="why">${esc(c.why)}</p>
       ${c.mustCheck ? `<p class="must"><b>★ 이것부터 검토하세요</b>${esc(c.mustCheck)}</p>` : ''}
@@ -585,7 +589,7 @@ $('#deptSearch').addEventListener('keydown', (e) => {
 });
 
 /* 연습 모드 */
-const prac = { pool: [], timer: null, sec: 0, running: false };
+const prac = { pool: [], buckets: null, ci: 0, timer: null, sec: 0, running: false };
 function fmt(s) { return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); }
 function pracStop() {
   clearInterval(prac.timer); prac.timer = null; prac.running = false;
@@ -624,19 +628,44 @@ $('#pracCamToggle').addEventListener('click', () => {
   }
 });
 
-$('#pracNext').addEventListener('click', () => {
-  if (!prac.pool.length) {
-    // 어느 학과에 지원하든 쓸 수 있는 문항만 (build_common.py 의 practice)
-    prac.pool = (state.common.practice || []).slice();
-    if (!prac.pool.length) {
-      state.common.categories.forEach((c) =>
-        c.examples.forEach((e) => prac.pool.push({ cat: c.title, q: e.q, univ: e.univ })));
+/* 실제 면접 순서와 같도록 자기소개 → … → 압박·돌발 순으로 한 유형씩 돌아간다.
+   유형 안에서만 무작위로 뽑으므로 같은 문항이 연달아 나오지 않는다. */
+function pracBuild() {
+  // 어느 학과에 지원하든 쓸 수 있는 문항만 (build_common.py 의 practice)
+  let pool = (state.common.practice || []).slice();
+  if (!pool.length) {
+    pool = [];
+    state.common.categories.forEach((c) =>
+      c.examples.forEach((e) => pool.push({ cat: c.title, q: e.q, univ: e.univ })));
+  }
+  prac.pool = pool;
+  prac.buckets = state.common.categories
+    .map((c) => ({ title: c.title, left: [], all: pool.filter((p) => p.cat === c.title) }))
+    .filter((b) => b.all.length);
+  prac.ci = 0;
+}
+
+function pracDraw(b) {
+  if (!b.left.length) {
+    b.left = b.all.slice();
+    for (let i = b.left.length - 1; i > 0; i -= 1) {   // 유형 안에서 섞는다
+      const j = Math.floor(Math.random() * (i + 1));
+      [b.left[i], b.left[j]] = [b.left[j], b.left[i]];
     }
   }
-  const p = prac.pool[Math.floor(Math.random() * prac.pool.length)];
-  $('#pracCat').textContent = p.cat;
+  return b.left.pop();
+}
+
+$('#pracNext').addEventListener('click', () => {
+  if (!prac.buckets || !prac.buckets.length) pracBuild();
+  if (!prac.buckets.length) return;
+  const b = prac.buckets[prac.ci];
+  const p = pracDraw(b);
+  $('#pracCat').textContent = `${prac.ci + 1} / ${prac.buckets.length} · ${b.title}`;
   $('#pracQ').textContent = p.q;
   $('#pracHint').textContent = p.univ + ' 기출 · 권장 답변 시간 60초';
+  prac.ci = (prac.ci + 1) % prac.buckets.length;
+  $('#pracNext').textContent = prac.ci === 0 ? '처음부터 다시' : '다음 유형 문항';
   pracReset();
 });
 
